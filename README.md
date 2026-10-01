@@ -5,7 +5,7 @@
 > **Integrantes:**  
 > - Diego Astete Paz  
 > - Lorgio Leonardo Choque Severiche  
-> **Tecnología:** Flutter (Dart) - Multiplataforma (Linux / Móvil / Web)
+> **Tecnología:** Flutter (Dart) - Móvil & Web
 
 ---
 
@@ -16,11 +16,11 @@
 
 ---
 
-## 🚀 Guía de Ejecución Rápida
+## 🚀 Guía de Ejecución
 
 ### 1. Requisitos Previos
-* Flutter SDK (3.x o superior)
-* Linux Desktop, Chrome o emulador Android
+* Flutter SDK (3.x o superior) instalado y configurado en el sistema (Windows, macOS o Linux).
+* Emulador Android / iOS, dispositivo móvil conectado, o navegador Web (Chrome / Edge).
 
 ### 2. Instalar dependencias
 ```bash
@@ -28,11 +28,26 @@ flutter pub get
 ```
 
 ### 3. Ejecutar la aplicación
-Para probarla directamente en tu equipo Linux:
+Ejecutar el comando estándar (Flutter detectará automáticamente el dispositivo o emulador disponible):
 ```bash
-flutter run -d linux
+flutter run
 ```
-*(O en navegador web si lo prefieres: `flutter run -d chrome`)*
+
+*Si se desea especificar una plataforma concreta:*
+* **En Navegador Web:**
+  ```bash
+  flutter run -d chrome
+  ```
+* **En Emulador o Teléfono Móvil:**
+  ```bash
+  flutter run -d android
+  ```
+* **En Escritorio (Windows / macOS / Linux):**
+  ```bash
+  flutter run -d windows    # En Windows
+  flutter run -d macos      # En macOS
+  flutter run -d linux      # En Linux
+  ```
 
 ### 4. Ejecutar pruebas automatizadas
 ```bash
@@ -41,9 +56,9 @@ flutter test
 
 ---
 
-## ⚡ Cuentas Semilla para Pruebas Rápidas (Seeds)
+## ⚡ Cuentas Semilla para Pruebas (Seeds)
 
-La aplicación incluye cuentas precargadas en el servicio de autenticación con botones de **autollenado a 1 toque** en la pantalla de login:
+La aplicación incluye cuentas precargadas en el servicio de autenticación listas para iniciar sesión directamente:
 
 | Estudiante | Correo | Contraseña | Carrera | Deporte |
 | :--- | :--- | :--- | :--- | :--- |
