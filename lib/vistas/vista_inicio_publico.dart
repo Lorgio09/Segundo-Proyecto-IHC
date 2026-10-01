@@ -6,13 +6,45 @@ import 'vista_registro.dart';
 import 'vista_mis_partidos.dart';
 
 /// Ruta Pública: Portada de bienvenida a UniSport accesible sin sesión
-class VistaInicioPublico extends StatelessWidget {
+class VistaInicioPublico extends StatefulWidget {
   final ServicioAutenticacion servicioAuth;
 
   const VistaInicioPublico({
     super.key,
     required this.servicioAuth,
   });
+
+  @override
+  State<VistaInicioPublico> createState() => _VistaInicioPublicoState();
+}
+
+class _VistaInicioPublicoState extends State<VistaInicioPublico> {
+  final int _indiceNavegacion = 0;
+
+  void _alSeleccionarPestana(int indice) {
+    if (indice == 1) {
+      // Intento de acceder a Mis Partidos (Ruta Privada)
+      if (widget.servicioAuth.estaAutenticado) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => VistaMisPartidos(servicioAuth: widget.servicioAuth),
+          ),
+        );
+      } else {
+        // Redirección natural al login por falta de sesión
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => VistaLogin(
+              servicioAuth: widget.servicioAuth,
+              mensajeRedireccion: 'Inicia sesión para ver tus partidos.',
+            ),
+          ),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -40,266 +72,178 @@ class VistaInicioPublico extends StatelessWidget {
             ),
           ],
         ),
-        actions: [
-          Container(
-            margin: const EdgeInsets.only(right: 16),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: TemaApp.amarilloInsignia,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: TemaApp.borde, width: 2),
-            ),
-            child: const Text(
-              'Pública',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w800,
-                color: TemaApp.textoPrincipal,
-              ),
-            ),
-          ),
-        ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Tarjeta Hero con Borde Ancho
-            Container(
-              padding: const EdgeInsets.all(22),
-              decoration: BoxDecoration(
-                color: TemaApp.azulDeportivo,
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: TemaApp.borde, width: TemaApp.grosorBordeAncho),
-                boxShadow: const [
-                  BoxShadow(
-                    color: TemaApp.borde,
-                    offset: Offset(4, 4),
-                    blurRadius: 0,
-                  ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: TemaApp.borde, width: 2),
-                    ),
-                    child: const Text(
-                      'IHC · PROYECTO 2',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w900,
-                        color: TemaApp.textoPrincipal,
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 480),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Tarjeta Hero Principal
+                Container(
+                  padding: const EdgeInsets.all(22),
+                  decoration: BoxDecoration(
+                    color: TemaApp.azulDeportivo,
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(color: TemaApp.borde, width: TemaApp.grosorBordeAncho),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: TemaApp.borde,
+                        offset: Offset(4, 4),
+                        blurRadius: 0,
                       ),
-                    ),
+                    ],
                   ),
-                  const SizedBox(height: 12),
-                  const Text(
-                    '¡Crea Partidos y Completa tu Equipo!',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.w900,
-                      color: Colors.white,
-                      height: 1.2,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  const Text(
-                    'La plataforma universitaria para coordinar encuentros deportivos en las canchas del campus sin fricción.',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Color(0xFFE0E7FF),
-                      height: 1.4,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 24),
-
-            // Estado de Sesión Actual
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: TemaApp.borde, width: TemaApp.grosorBorde),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    servicioAuth.estaAutenticado ? Icons.check_circle : Icons.lock_outline,
-                    color: servicioAuth.estaAutenticado ? TemaApp.verdeDeportivo : TemaApp.textoSecundario,
-                    size: 28,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          servicioAuth.estaAutenticado ? 'Sesión Iniciada' : 'Navegación como Invitado',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w800,
-                            fontSize: 15,
-                            color: TemaApp.textoPrincipal,
-                          ),
+                  child: const Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '¡Crea Partidos y Completa tu Equipo!',
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w900,
+                          color: Colors.white,
+                          height: 1.2,
                         ),
-                        Text(
-                          servicioAuth.estaAutenticado
-                              ? 'Conectado como: ${servicioAuth.usuarioActual!.nombre}'
-                              : 'Inicia sesión para gestionar "Mis Partidos"',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: TemaApp.textoSecundario,
-                          ),
+                      ),
+                      SizedBox(height: 10),
+                      Text(
+                        'La plataforma universitaria para coordinar encuentros deportivos en las canchas del campus sin fricción.',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Color(0xFFE0E7FF),
+                          height: 1.4,
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 24),
-
-            // Botones de Acción
-            if (!servicioAuth.estaAutenticado) ...[
-              ElevatedButton.icon(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => VistaLogin(servicioAuth: servicioAuth),
-                    ),
-                  );
-                },
-                icon: const Icon(Icons.login),
-                label: const Text('INICIAR SESIÓN'),
-              ),
-              const SizedBox(height: 12),
-              OutlinedButton.icon(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => VistaRegistro(servicioAuth: servicioAuth),
-                    ),
-                  );
-                },
-                icon: const Icon(Icons.person_add_alt),
-                label: const Text('CREAR NUEVA CUENTA'),
-              ),
-            ] else ...[
-              ElevatedButton.icon(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => VistaMisPartidos(servicioAuth: servicioAuth),
-                    ),
-                  );
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: TemaApp.verdeDeportivo,
                 ),
-                icon: const Icon(Icons.sports_soccer),
-                label: const Text('IR A MIS PARTIDOS (PRIVADA)'),
-              ),
-              const SizedBox(height: 12),
-              OutlinedButton.icon(
-                onPressed: () async {
-                  await servicioAuth.cerrarSesion();
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Sesión cerrada correctamente.'),
-                        backgroundColor: TemaApp.textoPrincipal,
-                      ),
-                    );
-                  }
-                },
-                icon: const Icon(Icons.logout),
-                label: const Text('CERRAR SESIÓN'),
-              ),
-            ],
 
-            const SizedBox(height: 18),
+                const SizedBox(height: 24),
 
-            // Botón de Prueba de Protección de Ruta (Demostración para el docente)
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: const Color(0xFFFEF3C7),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: const Color(0xFFD97706), width: 2),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    '🛡️ Prueba de Ruta Protegida (Para el Docente):',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w800,
-                      fontSize: 13,
-                      color: Color(0xFF92400E),
-                    ),
+                // Disciplinas Deportivas
+                const Text(
+                  'Disciplinas Disponibles',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                    color: TemaApp.textoPrincipal,
                   ),
-                  const SizedBox(height: 4),
-                  const Text(
-                    'Presiona el botón para verificar que el acceso no autorizado a "Mis Partidos" es bloqueado y redirige al Login.',
-                    style: TextStyle(fontSize: 12, color: Color(0xFF78350F)),
-                  ),
-                  const SizedBox(height: 8),
-                  TextButton.icon(
+                ),
+                const SizedBox(height: 10),
+                const Row(
+                  children: [
+                    _ChipDisciplina(icono: '⚽', nombre: 'Futsal'),
+                    SizedBox(width: 8),
+                    _ChipDisciplina(icono: '🏀', nombre: 'Básquet'),
+                    SizedBox(width: 8),
+                    _ChipDisciplina(icono: '🏐', nombre: 'Vóley'),
+                  ],
+                ),
+
+                const SizedBox(height: 28),
+
+                // Acciones de Acceso
+                if (!widget.servicioAuth.estaAutenticado) ...[
+                  ElevatedButton.icon(
                     onPressed: () {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => VistaMisPartidos(servicioAuth: servicioAuth),
+                          builder: (_) => VistaLogin(servicioAuth: widget.servicioAuth),
                         ),
                       );
                     },
-                    icon: const Icon(Icons.security, size: 18),
-                    label: const Text('Probar acceso directo a Ruta Privada'),
-                    style: TextButton.styleFrom(
-                      foregroundColor: const Color(0xFF92400E),
-                      textStyle: const TextStyle(fontWeight: FontWeight.bold),
+                    icon: const Icon(Icons.login),
+                    label: const Text('INICIAR SESIÓN'),
+                  ),
+                  const SizedBox(height: 12),
+                  OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => VistaRegistro(servicioAuth: widget.servicioAuth),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.person_add_alt),
+                    label: const Text('CREAR NUEVA CUENTA'),
+                  ),
+                ] else ...[
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => VistaMisPartidos(servicioAuth: widget.servicioAuth),
+                        ),
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: TemaApp.verdeDeportivo,
                     ),
+                    icon: const Icon(Icons.sports_soccer),
+                    label: const Text('VER MIS PARTIDOS'),
                   ),
                 ],
-              ),
+              ],
             ),
+          ),
+        ),
+      ),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _indiceNavegacion,
+        onTap: _alSeleccionarPestana,
+        selectedItemColor: TemaApp.textoPrincipal,
+        unselectedItemColor: TemaApp.textoSecundario,
+        selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+        unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home_outlined),
+            activeIcon: Icon(Icons.home),
+            label: 'Inicio',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.sports_soccer_outlined),
+            activeIcon: Icon(Icons.sports_soccer),
+            label: 'Mis Partidos',
+          ),
+        ],
+      ),
+    );
+  }
+}
 
-            const SizedBox(height: 28),
+class _ChipDisciplina extends StatelessWidget {
+  final String icono;
+  final String nombre;
 
-            // Footer con Integrantes
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: const Color(0xFFE2E8F0)),
-              ),
-              child: const Column(
-                children: [
-                  Text(
-                    'Proyecto 2 · Interacción Humano-Computador',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: TemaApp.textoSecundario),
-                  ),
-                  SizedBox(height: 4),
-                  Text(
-                    'Diego Astete Paz · Lorgio Leonardo Choque Severiche',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: TemaApp.textoPrincipal),
-                  ),
-                ],
+  const _ChipDisciplina({required this.icono, required this.nombre});
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: TemaApp.borde, width: TemaApp.grosorBorde),
+        ),
+        child: Column(
+          children: [
+            Text(icono, style: const TextStyle(fontSize: 22)),
+            const SizedBox(height: 4),
+            Text(
+              nombre,
+              style: const TextStyle(
+                fontWeight: FontWeight.w800,
+                fontSize: 12,
+                color: TemaApp.textoPrincipal,
               ),
             ),
           ],

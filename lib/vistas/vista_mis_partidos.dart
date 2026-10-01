@@ -156,10 +156,13 @@ class _VistaMisPartidosState extends State<VistaMisPartidos> {
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 480),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // Banner de Usuario Autenticado (Requisito explícito del docente)
             Container(
@@ -293,7 +296,9 @@ class _VistaMisPartidosState extends State<VistaMisPartidos> {
           ],
         ),
       ),
-    );
+    ),
+  ),
+);
   }
 
   Widget _construirBotonFiltro(String texto, String clave) {
