@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
+
+import '../tema/caja_mensaje.dart';
 import '../servicios/servicio_autenticacion.dart';
 import '../tema/tema_app.dart';
 
@@ -6,10 +9,7 @@ import '../tema/tema_app.dart';
 class VistaRecuperarClave extends StatefulWidget {
   final ServicioAutenticacion servicioAuth;
 
-  const VistaRecuperarClave({
-    super.key,
-    required this.servicioAuth,
-  });
+  const VistaRecuperarClave({super.key, required this.servicioAuth});
 
   @override
   State<VistaRecuperarClave> createState() => _VistaRecuperarClaveState();
@@ -55,9 +55,7 @@ class _VistaRecuperarClaveState extends State<VistaRecuperarClave> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Recuperar Contraseña'),
-      ),
+      appBar: AppBar(title: const Text('Recuperar Contraseña')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: _enviado ? _construirVistaExito() : _construirFormulario(),
@@ -69,12 +67,26 @@ class _VistaRecuperarClaveState extends State<VistaRecuperarClave> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Icon(Icons.mark_email_read_outlined, size: 64, color: TemaApp.azulDeportivo),
+        Center(
+          child: Container(
+            width: 76,
+            height: 76,
+            decoration: BoxDecoration(
+              color: TemaApp.azulSuave,
+              borderRadius: BorderRadius.circular(24),
+            ),
+            child: const Icon(
+              LucideIcons.mailCheck,
+              size: 34,
+              color: TemaApp.azulDeportivo,
+            ),
+          ),
+        ),
         const SizedBox(height: 16),
-        const Text(
+        Text(
           '¿Problemas para acceder?',
           textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: TemaApp.textoPrincipal),
+          style: TemaApp.titulo(tamano: 24),
         ),
         const SizedBox(height: 8),
         const Text(
@@ -89,24 +101,13 @@ class _VistaRecuperarClaveState extends State<VistaRecuperarClave> {
           keyboardType: TextInputType.emailAddress,
           decoration: const InputDecoration(
             labelText: 'Correo Institucional',
-            prefixIcon: Icon(Icons.email_outlined),
+            prefixIcon: Icon(LucideIcons.mail),
           ),
         ),
 
         if (_mensajeError != null) ...[
           const SizedBox(height: 14),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: const Color(0xFFFEE2E2),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: TemaApp.rojoAlerta, width: 2),
-            ),
-            child: Text(
-              _mensajeError!,
-              style: const TextStyle(color: Color(0xFF991B1B), fontWeight: FontWeight.bold),
-            ),
-          ),
+          CajaMensaje(texto: _mensajeError!),
         ],
 
         const SizedBox(height: 24),
@@ -117,9 +118,12 @@ class _VistaRecuperarClaveState extends State<VistaRecuperarClave> {
               ? const SizedBox(
                   height: 20,
                   width: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.5,
+                    color: Colors.white,
+                  ),
                 )
-              : const Text('ENVIAR INSTRUCCIONES'),
+              : const Text('Enviar instrucciones'),
         ),
       ],
     );
@@ -130,38 +134,39 @@ class _VistaRecuperarClaveState extends State<VistaRecuperarClave> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: const Color(0xFFDCFCE7),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: TemaApp.verdeDeportivo, width: TemaApp.grosorBorde),
-          ),
+          padding: const EdgeInsets.all(22),
+          decoration: TemaApp.tarjeta(radio: 22),
           child: Column(
             children: [
-              const Icon(Icons.check_circle, size: 60, color: TemaApp.verdeDeportivo),
-              const SizedBox(height: 12),
-              const Text(
-                '¡Solicitud Procesada!',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: TemaApp.textoPrincipal),
+              Container(
+                width: 68,
+                height: 68,
+                decoration: BoxDecoration(
+                  color: TemaApp.verdeSuave,
+                  borderRadius: BorderRadius.circular(22),
+                ),
+                child: const Icon(
+                  LucideIcons.circleCheck,
+                  size: 32,
+                  color: TemaApp.verdeDeportivo,
+                ),
               ),
+              const SizedBox(height: 14),
+              Text('¡Solicitud procesada!', style: TemaApp.titulo(tamano: 20)),
               const SizedBox(height: 8),
               Text(
                 'Se enviaron las instrucciones a ${_controladorCorreo.text}',
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 14, color: Color(0xFF166534), fontWeight: FontWeight.w600),
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: TemaApp.textoSecundario,
+                  height: 1.4,
+                ),
               ),
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFF86EFAC)),
-                ),
-                child: const Text(
-                  '💡 Simulación IHC: En producción este flujo se conecta al servicio SMTP. Para pruebas académicas se valida la existencia del usuario.',
-                  style: TextStyle(fontSize: 12, color: TemaApp.textoSecundario),
-                ),
+              const SizedBox(height: 16),
+              const CajaMensaje(
+                tipo: TipoMensaje.info,
+                texto: 'Simulación IHC: en producción este flujo se conecta al servicio SMTP. Para pruebas académicas se valida la existencia del usuario.',
               ),
             ],
           ),
@@ -169,7 +174,7 @@ class _VistaRecuperarClaveState extends State<VistaRecuperarClave> {
         const SizedBox(height: 24),
         ElevatedButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('VOLVER AL INICIO DE SESIÓN'),
+          child: const Text('Volver al inicio de sesión'),
         ),
       ],
     );

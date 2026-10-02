@@ -54,6 +54,12 @@ flutter run
 flutter test
 ```
 
+Solo las pruebas unitarias de la Tarea 2 (cambio de estado del partido):
+```bash
+flutter test test/estado_partido_test.dart
+```
+Detalle de la tarea y de las pruebas en [`docs/task-02-state-tests.md`](docs/task-02-state-tests.md).
+
 ---
 
 ## ⚡ Cuentas Semilla para Pruebas (Seeds)
@@ -89,6 +95,15 @@ La aplicación incluye cuentas precargadas en el servicio de autenticación list
 
 ---
 
+## ✅ Tarea 2 - Cambio de estado y pruebas unitarias
+
+- **Nueva acción:** en *Mis partidos*, el organizador pulsa **Completar equipo** y el partido pasa de **Cupos abiertos** a **Equipo completo** (los cupos quedan completos).
+- **Persistencia:** el cambio se guarda y se conserva al recargar la aplicación.
+- **Pruebas unitarias:** 8 pruebas sobre la regla de cambio de estado, ejecutadas y aprobadas con `flutter test`.
+- **Documentación:** [`docs/task-02-state-tests.md`](docs/task-02-state-tests.md)
+
+---
+
 ## 📁 Estructura del Código (En Español)
 
 ```
@@ -101,11 +116,23 @@ lib/
 │   ├── servicio_autenticacion.dart # Lógica de login, registro, logout y semillas
 │   └── servicio_almacenamiento.dart# Persistencia local con SharedPreferences
 ├── tema/
-│   └── tema_app.dart               # Paleta de colores deportiva y bordes definidos
+│   ├── tema_app.dart               # Tema claro: paleta verde/cian, tipografía y componentes
+│   ├── iconos_deporte.dart         # Ícono y color de cada disciplina
+│   └── caja_mensaje.dart           # Avisos de error / información / éxito
+├── widgets/
+│   ├── tarjeta_partido.dart        # Tarjeta de partido con la acción "Completar equipo"
+│   ├── campo_clave.dart            # Campo de contraseña con balones animados
+│   ├── boton_accion.dart           # Botón con estados (normal / cargando / éxito)
+│   └── animaciones.dart            # Entrada escalonada y sacudida de formulario
 └── vistas/
     ├── vista_inicio_publico.dart   # Ruta Pública: Portada de UniSport
     ├── vista_login.dart            # Formulario de inicio de sesión con autollenado
     ├── vista_registro.dart         # Formulario de registro para nuevos estudiantes
     ├── vista_recuperar_clave.dart  # Recuperación simulada de contraseña
-    └── vista_mis_partidos.dart     # Ruta Privada: Mis Partidos (Protegida)
+    ├── vista_mis_partidos.dart     # Ruta Privada: Mis Partidos (Protegida)
+    └── vista_crear_partido.dart    # Formulario para crear un partido
+
+test/
+├── estado_partido_test.dart        # Pruebas unitarias del cambio de estado (Tarea 2)
+└── widget_test.dart                # Prueba de la portada pública
 ```

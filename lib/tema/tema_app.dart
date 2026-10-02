@@ -1,91 +1,115 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
-/// Tema visual para UniSport con estilo de bordes definidos y estética deportiva moderna (IHC)
+/// Tema visual de UniSport: modo claro, superficies limpias, verde deportivo
+/// como color de acción y cian como acento informativo.
 class TemaApp {
-  // Paleta de colores principales
-  static const Color fondo = Color(0xFFF8FAFC);
+  // Base
+  static const Color fondo = Color(0xFFF6F8FB);
   static const Color superficie = Color(0xFFFFFFFF);
+  static const Color superficieSuave = Color(0xFFF1F5F9);
   static const Color textoPrincipal = Color(0xFF0F172A);
   static const Color textoSecundario = Color(0xFF64748B);
-  static const Color borde = Color(0xFF0F172A);
-  
-  // Colores de acento deportivo
-  static const Color verdeDeportivo = Color(0xFF10B981);
-  static const Color azulDeportivo = Color(0xFF6366F1);
-  static const Color rojoAlerta = Color(0xFFEF4444);
-  static const Color amarilloInsignia = Color(0xFFFEF08A);
+  static const Color borde = Color(0xFFE2E8F0);
 
-  // Grosor de bordes para el estilo con bordes definidos
-  static const double grosorBorde = 2.5;
-  static const double grosorBordeAncho = 3.5;
+  // Marca y acentos
+  static const Color verdeDeportivo = Color(0xFF16A34A);
+  static const Color verdeOscuro = Color(0xFF15803D);
+  static const Color verdeSuave = Color(0xFFDCFCE7);
+  static const Color azulDeportivo = Color(
+    0xFF0284C7,
+  ); // cian/azul para enlaces e info
+  static const Color azulSuave = Color(0xFFE0F2FE);
+  static const Color naranjaAviso = Color(0xFFEA580C);
+  static const Color naranjaSuave = Color(0xFFFFEDD5);
+  static const Color rojoAlerta = Color(0xFFDC2626);
+  static const Color rojoSuave = Color(0xFFFEE2E2);
+
+  static const double radio = 16;
+
+  static const List<BoxShadow> sombraSuave = [
+    BoxShadow(color: Color(0x0F0F172A), blurRadius: 16, offset: Offset(0, 6)),
+  ];
+
+  /// Tarjeta estándar: fondo blanco, borde fino y sombra muy sutil.
+  static BoxDecoration tarjeta({Color? color, double radio = 18}) =>
+      BoxDecoration(
+        color: color ?? superficie,
+        borderRadius: BorderRadius.circular(radio),
+        border: Border.all(color: borde),
+        boxShadow: sombraSuave,
+      );
 
   static ThemeData get tema {
-    return ThemeData(
+    final base = ThemeData(
       useMaterial3: true,
+      brightness: Brightness.light,
       scaffoldBackgroundColor: fondo,
-      fontFamily: 'sans-serif',
+      fontFamily: GoogleFonts.inter().fontFamily,
       colorScheme: ColorScheme.fromSeed(
-        seedColor: azulDeportivo,
-        primary: textoPrincipal,
-        secondary: verdeDeportivo,
+        seedColor: verdeDeportivo,
+        brightness: Brightness.light,
+        primary: verdeDeportivo,
+        secondary: azulDeportivo,
         surface: superficie,
         error: rojoAlerta,
       ),
-      appBarTheme: const AppBarTheme(
-        backgroundColor: superficie,
+    );
+
+    OutlineInputBorder bordeCampo(Color color, [double ancho = 1.2]) =>
+        OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(color: color, width: ancho),
+        );
+
+    return base.copyWith(
+      appBarTheme: AppBarTheme(
+        backgroundColor: fondo,
+        surfaceTintColor: Colors.transparent,
         elevation: 0,
+        scrolledUnderElevation: 0,
         centerTitle: false,
-        titleTextStyle: TextStyle(
+        titleTextStyle: GoogleFonts.plusJakartaSans(
           color: textoPrincipal,
           fontSize: 20,
-          fontWeight: FontWeight.w900,
-          letterSpacing: -0.5,
+          fontWeight: FontWeight.w800,
+          letterSpacing: -0.3,
         ),
-        iconTheme: IconThemeData(color: textoPrincipal),
+        iconTheme: const IconThemeData(color: textoPrincipal),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: superficie,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 16,
+        ),
         labelStyle: const TextStyle(
           color: textoSecundario,
-          fontWeight: FontWeight.w600,
+          fontWeight: FontWeight.w500,
         ),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: borde, width: grosorBorde),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: borde, width: grosorBorde),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: azulDeportivo, width: grosorBordeAncho),
-        ),
-        errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: rojoAlerta, width: grosorBorde),
-        ),
-        focusedErrorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: rojoAlerta, width: grosorBordeAncho),
-        ),
+        hintStyle: const TextStyle(color: Color(0xFF94A3B8)),
+        prefixIconColor: textoSecundario,
+        suffixIconColor: textoSecundario,
+        border: bordeCampo(borde),
+        enabledBorder: bordeCampo(borde),
+        focusedBorder: bordeCampo(verdeDeportivo, 1.8),
+        errorBorder: bordeCampo(rojoAlerta),
+        focusedErrorBorder: bordeCampo(rojoAlerta, 1.8),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: textoPrincipal,
+          backgroundColor: verdeDeportivo,
           foregroundColor: Colors.white,
-          minimumSize: const Size(double.infinity, 54),
+          disabledBackgroundColor: const Color(0xFFBBF7D0),
+          minimumSize: const Size(double.infinity, 52),
           elevation: 0,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-            side: const BorderSide(color: borde, width: grosorBorde),
+            borderRadius: BorderRadius.circular(14),
           ),
-          textStyle: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w800,
-            letterSpacing: 0.3,
+          textStyle: GoogleFonts.inter(
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
           ),
         ),
       ),
@@ -94,16 +118,73 @@ class TemaApp {
           foregroundColor: textoPrincipal,
           backgroundColor: superficie,
           minimumSize: const Size(double.infinity, 52),
-          side: const BorderSide(color: borde, width: grosorBorde),
+          side: const BorderSide(color: borde, width: 1.4),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(14),
           ),
-          textStyle: const TextStyle(
+          textStyle: GoogleFonts.inter(
             fontSize: 15,
-            fontWeight: FontWeight.w800,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          foregroundColor: verdeOscuro,
+          textStyle: GoogleFonts.inter(fontWeight: FontWeight.w600),
+        ),
+      ),
+      snackBarTheme: SnackBarThemeData(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: textoPrincipal,
+        contentTextStyle: GoogleFonts.inter(
+          color: Colors.white,
+          fontWeight: FontWeight.w500,
+        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      ),
+      dialogTheme: DialogThemeData(
+        backgroundColor: superficie,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+      ),
+      navigationBarTheme: NavigationBarThemeData(
+        backgroundColor: superficie,
+        surfaceTintColor: Colors.transparent,
+        indicatorColor: verdeSuave,
+        height: 68,
+        labelTextStyle: WidgetStateProperty.resolveWith(
+          (estados) => GoogleFonts.inter(
+            fontSize: 12,
+            fontWeight: estados.contains(WidgetState.selected)
+                ? FontWeight.w700
+                : FontWeight.w500,
+            color: estados.contains(WidgetState.selected)
+                ? verdeOscuro
+                : textoSecundario,
+          ),
+        ),
+        iconTheme: WidgetStateProperty.resolveWith(
+          (estados) => IconThemeData(
+            color: estados.contains(WidgetState.selected)
+                ? verdeOscuro
+                : textoSecundario,
           ),
         ),
       ),
     );
   }
+
+  /// Fuente para títulos y números destacados.
+  static TextStyle titulo({
+    double tamano = 24,
+    Color color = textoPrincipal,
+    FontWeight peso = FontWeight.w800,
+  }) => GoogleFonts.plusJakartaSans(
+    fontSize: tamano,
+    fontWeight: peso,
+    color: color,
+    letterSpacing: -0.4,
+    height: 1.2,
+  );
 }

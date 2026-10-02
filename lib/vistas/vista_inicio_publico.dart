@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
+
 import '../servicios/servicio_autenticacion.dart';
+
+import 'package:lucide_icons_flutter/lucide_icons.dart';
+
+import '../tema/iconos_deporte.dart';
 import '../tema/tema_app.dart';
 import 'vista_login.dart';
 import 'vista_registro.dart';
@@ -9,10 +14,7 @@ import 'vista_mis_partidos.dart';
 class VistaInicioPublico extends StatefulWidget {
   final ServicioAutenticacion servicioAuth;
 
-  const VistaInicioPublico({
-    super.key,
-    required this.servicioAuth,
-  });
+  const VistaInicioPublico({super.key, required this.servicioAuth});
 
   @override
   State<VistaInicioPublico> createState() => _VistaInicioPublicoState();
@@ -53,23 +55,19 @@ class _VistaInicioPublicoState extends State<VistaInicioPublico> {
         title: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(6),
+              padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
                 color: TemaApp.verdeDeportivo,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: TemaApp.borde, width: 2),
+                borderRadius: BorderRadius.circular(11),
               ),
-              child: const Text('⚽', style: TextStyle(fontSize: 18)),
+              child: const Icon(
+                LucideIcons.trophy,
+                color: Colors.white,
+                size: 18,
+              ),
             ),
             const SizedBox(width: 10),
-            const Text(
-              'UniSport',
-              style: TextStyle(
-                fontWeight: FontWeight.w900,
-                fontSize: 22,
-                color: TemaApp.textoPrincipal,
-              ),
-            ),
+            Text('UniSport', style: TemaApp.titulo(tamano: 21)),
           ],
         ),
       ),
@@ -77,87 +75,40 @@ class _VistaInicioPublicoState extends State<VistaInicioPublico> {
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 480),
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Tarjeta Hero Principal
-                Container(
-                  padding: const EdgeInsets.all(22),
-                  decoration: BoxDecoration(
-                    color: TemaApp.azulDeportivo,
-                    borderRadius: BorderRadius.circular(24),
-                    border: Border.all(color: TemaApp.borde, width: TemaApp.grosorBordeAncho),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: TemaApp.borde,
-                        offset: Offset(4, 4),
-                        blurRadius: 0,
-                      ),
-                    ],
-                  ),
-                  child: const Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '¡Crea Partidos y Completa tu Equipo!',
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.w900,
-                          color: Colors.white,
-                          height: 1.2,
-                        ),
-                      ),
-                      SizedBox(height: 10),
-                      Text(
-                        'La plataforma universitaria para coordinar encuentros deportivos en las canchas del campus sin fricción.',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Color(0xFFE0E7FF),
-                          height: 1.4,
-                        ),
-                      ),
-                    ],
-                  ),
+                _construirHero(),
+                const SizedBox(height: 28),
+                Text(
+                  'Disciplinas disponibles',
+                  style: TemaApp.titulo(tamano: 17),
                 ),
-
-                const SizedBox(height: 24),
-
-                // Disciplinas Deportivas
-                const Text(
-                  'Disciplinas Disponibles',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w900,
-                    color: TemaApp.textoPrincipal,
-                  ),
-                ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 12),
                 const Row(
                   children: [
-                    _ChipDisciplina(icono: '⚽', nombre: 'Futsal'),
-                    SizedBox(width: 8),
-                    _ChipDisciplina(icono: '🏀', nombre: 'Básquet'),
-                    SizedBox(width: 8),
-                    _ChipDisciplina(icono: '🏐', nombre: 'Vóley'),
+                    _ChipDisciplina(disciplina: 'Futsal'),
+                    SizedBox(width: 10),
+                    _ChipDisciplina(disciplina: 'Básquet'),
+                    SizedBox(width: 10),
+                    _ChipDisciplina(disciplina: 'Vóley'),
                   ],
                 ),
-
                 const SizedBox(height: 28),
-
-                // Acciones de Acceso
                 if (!widget.servicioAuth.estaAutenticado) ...[
                   ElevatedButton.icon(
                     onPressed: () {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => VistaLogin(servicioAuth: widget.servicioAuth),
+                          builder: (_) =>
+                              VistaLogin(servicioAuth: widget.servicioAuth),
                         ),
                       );
                     },
-                    icon: const Icon(Icons.login),
-                    label: const Text('INICIAR SESIÓN'),
+                    icon: const Icon(LucideIcons.logIn, size: 19),
+                    label: const Text('Iniciar sesión'),
                   ),
                   const SizedBox(height: 12),
                   OutlinedButton.icon(
@@ -165,12 +116,13 @@ class _VistaInicioPublicoState extends State<VistaInicioPublico> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => VistaRegistro(servicioAuth: widget.servicioAuth),
+                          builder: (_) =>
+                              VistaRegistro(servicioAuth: widget.servicioAuth),
                         ),
                       );
                     },
-                    icon: const Icon(Icons.person_add_alt),
-                    label: const Text('CREAR NUEVA CUENTA'),
+                    icon: const Icon(LucideIcons.userPlus, size: 19),
+                    label: const Text('Crear nueva cuenta'),
                   ),
                 ] else ...[
                   ElevatedButton.icon(
@@ -178,15 +130,14 @@ class _VistaInicioPublicoState extends State<VistaInicioPublico> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => VistaMisPartidos(servicioAuth: widget.servicioAuth),
+                          builder: (_) => VistaMisPartidos(
+                            servicioAuth: widget.servicioAuth,
+                          ),
                         ),
                       );
                     },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: TemaApp.verdeDeportivo,
-                    ),
-                    icon: const Icon(Icons.sports_soccer),
-                    label: const Text('VER MIS PARTIDOS'),
+                    icon: const Icon(LucideIcons.calendarDays, size: 19),
+                    label: const Text('Ver mis partidos'),
                   ),
                 ],
               ],
@@ -194,23 +145,96 @@ class _VistaInicioPublicoState extends State<VistaInicioPublico> {
           ),
         ),
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _indiceNavegacion,
-        onTap: _alSeleccionarPestana,
-        selectedItemColor: TemaApp.textoPrincipal,
-        unselectedItemColor: TemaApp.textoSecundario,
-        selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-        unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home_outlined),
-            activeIcon: Icon(Icons.home),
-            label: 'Inicio',
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _indiceNavegacion,
+        onDestinationSelected: _alSeleccionarPestana,
+        destinations: const [
+          NavigationDestination(icon: Icon(LucideIcons.house), label: 'Inicio'),
+          NavigationDestination(
+            icon: Icon(LucideIcons.calendarDays),
+            label: 'Mis partidos',
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.sports_soccer_outlined),
-            activeIcon: Icon(Icons.sports_soccer),
-            label: 'Mis Partidos',
+        ],
+      ),
+    );
+  }
+
+  Widget _construirHero() {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF16A34A), Color(0xFF0F766E)],
+        ),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x3316A34A),
+            blurRadius: 24,
+            offset: Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            right: -34,
+            bottom: -44,
+            child: Icon(
+              LucideIcons.trophy,
+              size: 150,
+              color: Colors.white.withValues(alpha: 0.10),
+            ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 5,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(LucideIcons.mapPin, size: 13, color: Colors.white),
+                    SizedBox(width: 5),
+                    Text(
+                      'Canchas del campus',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Crea partidos y completa tu equipo',
+                style: TemaApp.titulo(tamano: 26, color: Colors.white),
+              ),
+              const SizedBox(height: 10),
+              const Padding(
+                padding: EdgeInsets.only(right: 40),
+                child: Text(
+                  'La plataforma universitaria para coordinar encuentros deportivos sin fricción.',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Color(0xE6FFFFFF),
+                    height: 1.45,
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -219,30 +243,25 @@ class _VistaInicioPublicoState extends State<VistaInicioPublico> {
 }
 
 class _ChipDisciplina extends StatelessWidget {
-  final String icono;
-  final String nombre;
+  final String disciplina;
 
-  const _ChipDisciplina({required this.icono, required this.nombre});
+  const _ChipDisciplina({required this.disciplina});
 
   @override
   Widget build(BuildContext context) {
     return Expanded(
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: TemaApp.borde, width: TemaApp.grosorBorde),
-        ),
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        decoration: TemaApp.tarjeta(radio: 16),
         child: Column(
           children: [
-            Text(icono, style: const TextStyle(fontSize: 22)),
-            const SizedBox(height: 4),
+            InsigniaDeporte(disciplina: disciplina, tamano: 44),
+            const SizedBox(height: 10),
             Text(
-              nombre,
+              disciplina,
               style: const TextStyle(
-                fontWeight: FontWeight.w800,
-                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
                 color: TemaApp.textoPrincipal,
               ),
             ),

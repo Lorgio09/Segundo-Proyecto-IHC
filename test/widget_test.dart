@@ -17,7 +17,7 @@ void main() {
 
     // Verificar que el título UniSport y los botones de acceso se muestren en la ruta pública
     expect(find.text('UniSport'), findsOneWidget);
-    expect(find.text('INICIAR SESIÓN'), findsOneWidget);
-    expect(find.text('CREAR NUEVA CUENTA'), findsOneWidget);
+    expect(find.text('Iniciar sesión'), findsOneWidget);
+    expect(find.text('Crear nueva cuenta'), findsOneWidget);
   });
 }
