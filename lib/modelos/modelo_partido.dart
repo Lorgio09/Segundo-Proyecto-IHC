@@ -78,6 +78,79 @@ class ModeloPartido {
     );
   }
 
+  // ---------------------------------------------------------------------------
+  // REGLA DE RESTRICCIÓN (UNISPORT)
+  //   "Un equipo completo no permite agregar más jugadores"
+  //   Cuando una acción esté bloqueada, la interfaz debe explicar claramente el motivo.
+  // ---------------------------------------------------------------------------
+
+  /// ¿Se puede agregar un jugador a este partido ahora mismo?
+  bool get puedeAgregarJugador =>
+      estado == EstadoPartido.cuposAbiertos && !estaLleno;
+
+  /// Motivo claro por el cual está bloqueada la acción de agregar jugadores.
+  /// Si la acción está permitida, devuelve null.
+  String? get motivoBloqueoAgregarJugador {
+    if (estado == EstadoPartido.equipoCompleto) {
+      return 'Convocatoria cerrada: el equipo ya está completo.';
+    }
+    if (estaLleno) {
+      return 'Cupos agotados: se alcanzó el límite máximo de jugadores.';
+    }
+    return null;
+  }
+
+  /// Acción de agregar un jugador (unirse al equipo).
+  /// Devuelve una copia inmutable del partido con cupos actualizados.
+  /// Lanza [StateError] si la restricción de estado no lo permite.
+  ModeloPartido agregarJugador({bool marcarComoUnido = true}) {
+    if (!puedeAgregarJugador) {
+      throw StateError(
+        motivoBloqueoAgregarJugador ??
+            'No se pueden agregar más jugadores a este equipo',
+      );
+    }
+    final nuevosOcupados = cuposOcupados + 1;
+    final seCompleto = nuevosOcupados >= cuposTotales;
+
+    return copyWith(
+      cuposOcupados: nuevosOcupados,
+      estoyUnido: estoyUnido || marcarComoUnido,
+      estado: seCompleto ? EstadoPartido.equipoCompleto : estado,
+    );
+  }
+
+  /// Genera una copia inmutable con campos modificados para el flujo de edición.
+  ModeloPartido copyWith({
+    String? id,
+    String? titulo,
+    String? disciplina,
+    String? icono,
+    String? ubicacion,
+    String? fechaHora,
+    int? cuposTotales,
+    int? cuposOcupados,
+    String? organizadorNombre,
+    bool? soyOrganizador,
+    bool? estoyUnido,
+    EstadoPartido? estado,
+  }) {
+    return ModeloPartido(
+      id: id ?? this.id,
+      titulo: titulo ?? this.titulo,
+      disciplina: disciplina ?? this.disciplina,
+      icono: icono ?? this.icono,
+      ubicacion: ubicacion ?? this.ubicacion,
+      fechaHora: fechaHora ?? this.fechaHora,
+      cuposTotales: cuposTotales ?? this.cuposTotales,
+      cuposOcupados: cuposOcupados ?? this.cuposOcupados,
+      organizadorNombre: organizadorNombre ?? this.organizadorNombre,
+      soyOrganizador: soyOrganizador ?? this.soyOrganizador,
+      estoyUnido: estoyUnido ?? this.estoyUnido,
+      estado: estado ?? this.estado,
+    );
+  }
+
   /// Convierte el partido en un Map para poder guardarlo como texto JSON.
   Map<String, dynamic> toJson() => {
     'id': id,
