@@ -13,14 +13,21 @@ import '../widgets/tarjeta_partido.dart';
 /// (Guardar, Mostrar y Recuperar los hace VistaMisPartidos.)
 class VistaCrearPartido extends StatefulWidget {
   final String organizadorNombre;
+  final ModeloPartido? partidoAEditar;
 
-  const VistaCrearPartido({super.key, required this.organizadorNombre});
+  const VistaCrearPartido({
+    super.key,
+    required this.organizadorNombre,
+    this.partidoAEditar,
+  });
 
   @override
   State<VistaCrearPartido> createState() => _VistaCrearPartidoState();
 }
 
 class _VistaCrearPartidoState extends State<VistaCrearPartido> {
+  bool get _esEdicion => widget.partidoAEditar != null;
+
   static const List<String> _disciplinas = [
     'Futsal',
     'Fútbol',
@@ -54,9 +61,24 @@ class _VistaCrearPartidoState extends State<VistaCrearPartido> {
     if (mounted) setState(() {});
   }
 
+  int get _cuposMinimo => _esEdicion
+      ? (widget.partidoAEditar!.cuposOcupados > _cuposMin
+          ? widget.partidoAEditar!.cuposOcupados
+          : _cuposMin)
+      : _cuposMin;
+
   @override
   void initState() {
     super.initState();
+    if (_esEdicion) {
+      final p = widget.partidoAEditar!;
+      _tituloCtrl.text = p.titulo;
+      _ubicacionCtrl.text = p.ubicacion;
+      _disciplina = p.disciplina;
+      _cupos = p.cuposTotales;
+      _fecha = _hoy;
+      _hora = const TimeOfDay(hour: 19, minute: 0);
+    }
     // La vista previa se actualiza mientras se escribe
     _tituloCtrl.addListener(_refrescar);
     _ubicacionCtrl.addListener(_refrescar);
@@ -121,19 +143,28 @@ class _VistaCrearPartidoState extends State<VistaCrearPartido> {
       return;
     }
 
-    final partido = ModeloPartido(
-      id: 'p-${DateTime.now().millisecondsSinceEpoch}',
-      titulo: _tituloCtrl.text.trim(),
-      disciplina: _disciplina,
-      icono: _disciplina, // el ícono visual se resuelve por disciplina (ver EstiloDeporte)
-      ubicacion: _ubicacionCtrl.text.trim(),
-      fechaHora: '$_textoFecha · $_textoHora',
-      cuposTotales: _cupos,
-      cuposOcupados: 1, // el organizador ya cuenta como jugador
-      organizadorNombre: widget.organizadorNombre,
-      soyOrganizador: true,
-      estoyUnido: true,
-    );
+    final partido = _esEdicion
+        ? widget.partidoAEditar!.copyWith(
+            titulo: _tituloCtrl.text.trim(),
+            disciplina: _disciplina,
+            icono: _disciplina,
+            ubicacion: _ubicacionCtrl.text.trim(),
+            fechaHora: '$_textoFecha · $_textoHora',
+            cuposTotales: _cupos,
+          )
+        : ModeloPartido(
+            id: 'p-${DateTime.now().millisecondsSinceEpoch}',
+            titulo: _tituloCtrl.text.trim(),
+            disciplina: _disciplina,
+            icono: _disciplina, // el ícono visual se resuelve por disciplina (ver EstiloDeporte)
+            ubicacion: _ubicacionCtrl.text.trim(),
+            fechaHora: '$_textoFecha · $_textoHora',
+            cuposTotales: _cupos,
+            cuposOcupados: 1, // el organizador ya cuenta como jugador
+            organizadorNombre: widget.organizadorNombre,
+            soyOrganizador: true,
+            estoyUnido: true,
+          );
 
     Navigator.pop(context, partido);
   }
@@ -143,7 +174,7 @@ class _VistaCrearPartidoState extends State<VistaCrearPartido> {
     final titulo = _tituloCtrl.text.trim();
     final lugar = _ubicacionCtrl.text.trim();
     return ModeloPartido(
-      id: 'vista-previa',
+      id: _esEdicion ? widget.partidoAEditar!.id : 'vista-previa',
       titulo: titulo.isEmpty ? 'Título del partido' : titulo,
       disciplina: _disciplina,
       icono: _disciplina,
@@ -151,10 +182,13 @@ class _VistaCrearPartidoState extends State<VistaCrearPartido> {
       fechaHora:
           '${_fecha == null ? 'Fecha por definir' : _formatoFecha(_fecha!)} · ${_hora == null ? 'Hora por definir' : _formatoHora(_hora!)}',
       cuposTotales: _cupos,
-      cuposOcupados: 1,
+      cuposOcupados: _esEdicion ? widget.partidoAEditar!.cuposOcupados : 1,
       organizadorNombre: widget.organizadorNombre,
       soyOrganizador: true,
       estoyUnido: true,
+      estado: _esEdicion
+          ? widget.partidoAEditar!.estado
+          : EstadoPartido.cuposAbiertos,
     );
   }
 
@@ -345,7 +379,7 @@ class _VistaCrearPartidoState extends State<VistaCrearPartido> {
             children: [
               _botonCupo(
                 LucideIcons.minus,
-                _cupos > _cuposMin ? () => setState(() => _cupos--) : null,
+                _cupos > _cuposMinimo ? () => setState(() => _cupos--) : null,
               ),
               SizedBox(
                 width: 110,
@@ -420,7 +454,9 @@ class _VistaCrearPartidoState extends State<VistaCrearPartido> {
     final errorHora = _intentoEnviar && _hora == null;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Crear partido')),
+      appBar: AppBar(
+        title: Text(_esEdicion ? 'Editar partido' : 'Crear partido'),
+      ),
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 480),
@@ -605,7 +641,9 @@ class _VistaCrearPartidoState extends State<VistaCrearPartido> {
                     ElevatedButton.icon(
                       onPressed: _guardar,
                       icon: const Icon(LucideIcons.check, size: 19),
-                      label: const Text('Guardar partido'),
+                      label: Text(
+                        _esEdicion ? 'Guardar cambios' : 'Guardar partido',
+                      ),
                     ),
                   ],
                 ),

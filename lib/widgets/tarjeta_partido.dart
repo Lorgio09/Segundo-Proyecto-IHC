@@ -12,11 +12,17 @@ class TarjetaPartido extends StatelessWidget {
   /// Si se entrega, el organizador ve el botón "Completar equipo"
   /// mientras el partido tenga los cupos abiertos.
   final VoidCallback? onCompletarEquipo;
+  final VoidCallback? onEditar;
+  final VoidCallback? onEliminar;
+  final VoidCallback? onUnirse;
 
   const TarjetaPartido({
     super.key,
     required this.partido,
     this.onCompletarEquipo,
+    this.onEditar,
+    this.onEliminar,
+    this.onUnirse,
   });
 
   @override
@@ -89,6 +95,26 @@ class TarjetaPartido extends StatelessWidget {
                   ],
                 ),
               ),
+              if (partido.soyOrganizador && (onEditar != null || onEliminar != null)) ...[
+                if (onEditar != null)
+                  IconButton(
+                    icon: const Icon(LucideIcons.pencil, size: 16),
+                    tooltip: 'Editar partido',
+                    color: TemaApp.textoSecundario,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                    onPressed: onEditar,
+                  ),
+                if (onEliminar != null)
+                  IconButton(
+                    icon: const Icon(LucideIcons.trash2, size: 16),
+                    tooltip: 'Eliminar partido',
+                    color: TemaApp.rojoAlerta,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                    onPressed: onEliminar,
+                  ),
+              ],
             ],
           ),
           const SizedBox(height: 12),
@@ -162,16 +188,121 @@ class TarjetaPartido extends StatelessWidget {
             ],
           ),
           // ACCIÓN: solo visible para el organizador mientras haya cupos abiertos
-          if (onCompletarEquipo != null && partido.puedeCompletarEquipo) ...[
-            const SizedBox(height: 14),
-            ElevatedButton.icon(
-              onPressed: onCompletarEquipo,
-              icon: const Icon(LucideIcons.userCheck, size: 18),
-              label: const Text('Completar equipo'),
-              style: ElevatedButton.styleFrom(
-                minimumSize: const Size(double.infinity, 46),
+          if (partido.soyOrganizador) ...[
+            if (onCompletarEquipo != null && partido.puedeCompletarEquipo) ...[
+              const SizedBox(height: 14),
+              ElevatedButton.icon(
+                onPressed: onCompletarEquipo,
+                icon: const Icon(LucideIcons.userCheck, size: 18),
+                label: const Text('Completar equipo'),
+                style: ElevatedButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 46),
+                ),
               ),
-            ),
+            ],
+            if (completo) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: TemaApp.verdeSuave,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: TemaApp.verdeDeportivo.withValues(alpha: 0.3),
+                  ),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(
+                      LucideIcons.circleCheck,
+                      size: 16,
+                      color: TemaApp.verdeOscuro,
+                    ),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Convocatoria cerrada: El equipo ya completó todos sus cupos.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: TemaApp.verdeOscuro,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ] else ...[
+            // Para participante / jugador
+            if (partido.estoyUnido) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: TemaApp.azulSuave,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(
+                      LucideIcons.circleCheck,
+                      size: 16,
+                      color: TemaApp.azulDeportivo,
+                    ),
+                    SizedBox(width: 8),
+                    Text(
+                      'Ya formas parte de este equipo',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF075985),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ] else if (partido.puedeAgregarJugador && onUnirse != null) ...[
+              const SizedBox(height: 14),
+              OutlinedButton.icon(
+                onPressed: onUnirse,
+                icon: const Icon(LucideIcons.userPlus, size: 18),
+                label: const Text('Unirme al equipo'),
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 44),
+                ),
+              ),
+            ] else ...[
+              // RESTRICCIÓN BLOQUEADA CON EXPLICACIÓN CLARA DEL MOTIVO
+              const SizedBox(height: 12),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFEF2F2),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFFECACA)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(LucideIcons.ban, size: 16, color: Color(0xFFDC2626)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'No puedes unirte: ${partido.motivoBloqueoAgregarJugador ?? "Convocatoria no disponible"}',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFFB91C1C),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ],
         ],
       ),

@@ -121,6 +121,117 @@ class _VistaMisPartidosState extends State<VistaMisPartidos> {
     );
   }
 
+  // ACCIÓN "EDITAR PARTIDO": abre el formulario con datos pre-cargados y actualiza
+  Future<void> _editarPartido(ModeloPartido partido) async {
+    final usuario = widget.servicioAuth.usuarioActual;
+    if (usuario == null) return;
+
+    final editado = await Navigator.push<ModeloPartido>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => VistaCrearPartido(
+          organizadorNombre: usuario.nombre,
+          partidoAEditar: partido,
+        ),
+      ),
+    );
+
+    if (editado == null || !mounted) return;
+
+    final nuevaLista = [
+      for (final p in _partidos) p.id == partido.id ? editado : p,
+    ];
+    await _almacenamiento.guardarPartidos(usuario.correo, nuevaLista);
+    if (!mounted) return;
+
+    setState(() => _partidos = nuevaLista);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Partido "${editado.titulo}" actualizado')),
+    );
+  }
+
+  // ACCIÓN "ELIMINAR PARTIDO": solicita confirmación previa antes de borrar
+  Future<void> _eliminarPartido(ModeloPartido partido) async {
+    final usuario = widget.servicioAuth.usuarioActual;
+    if (usuario == null) return;
+
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('¿Eliminar partido?', style: TemaApp.titulo(tamano: 20)),
+        content: Text(
+          '¿Estás seguro de que deseas eliminar "${partido.titulo}"? Esta acción no se puede deshacer.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text(
+              'Cancelar',
+              style: TextStyle(
+                color: TemaApp.textoSecundario,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: TemaApp.rojoAlerta,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmar != true || !mounted) return;
+
+    final nuevaLista = _partidos.where((p) => p.id != partido.id).toList();
+    await _almacenamiento.guardarPartidos(usuario.correo, nuevaLista);
+    if (!mounted) return;
+
+    setState(() => _partidos = nuevaLista);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Partido "${partido.titulo}" eliminado')),
+    );
+  }
+
+  // ACCIÓN "UNIRSE AL EQUIPO": aplica la restricción y persiste
+  Future<void> _unirseAPartido(ModeloPartido partido) async {
+    final usuario = widget.servicioAuth.usuarioActual;
+    if (usuario == null) return;
+
+    if (!partido.puedeAgregarJugador) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            partido.motivoBloqueoAgregarJugador ??
+                'No se pueden agregar más jugadores a este equipo.',
+          ),
+          backgroundColor: TemaApp.rojoAlerta,
+        ),
+      );
+      return;
+    }
+
+    final actualizado = partido.agregarJugador();
+    final nuevaLista = [
+      for (final p in _partidos) p.id == partido.id ? actualizado : p,
+    ];
+
+    await _almacenamiento.guardarPartidos(usuario.correo, nuevaLista);
+    if (!mounted) return;
+
+    setState(() => _partidos = nuevaLista);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('¡Te has unido a "${partido.titulo}"!')),
+    );
+  }
+
   Future<void> _cerrarSesion() async {
     final confirmar = await showDialog<bool>(
       context: context,
@@ -227,6 +338,9 @@ class _VistaMisPartidosState extends State<VistaMisPartidos> {
                     (p) => TarjetaPartido(
                       partido: p,
                       onCompletarEquipo: () => _completarEquipo(p),
+                      onEditar: () => _editarPartido(p),
+                      onEliminar: () => _eliminarPartido(p),
+                      onUnirse: () => _unirseAPartido(p),
                     ),
                   ),
               ],
