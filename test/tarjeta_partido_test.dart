@@ -4,10 +4,15 @@ import 'package:unisport/modelos/modelo_partido.dart';
 import 'package:unisport/widgets/tarjeta_partido.dart';
 
 /// Pruebas de la interfaz: la acción "Agregar jugador" y su bloqueo
-/// cuando el equipo está completo.
+/// cuando el equipo está completo, y la acción "Unirme al equipo" con el
+/// motivo de cada rechazo (Issue #4).
 ///
 /// Ejecutar con:  flutter test test/tarjeta_partido_test.dart
-ModeloPartido crearPartido({EstadoPartido estado = EstadoPartido.cuposAbiertos}) {
+ModeloPartido crearPartido({
+  EstadoPartido estado = EstadoPartido.cuposAbiertos,
+  bool soyOrganizador = true,
+  bool estoyUnido = true,
+}) {
   return ModeloPartido(
     id: 'p-1',
     titulo: 'Futsal nocturno',
@@ -18,8 +23,8 @@ ModeloPartido crearPartido({EstadoPartido estado = EstadoPartido.cuposAbiertos})
     cuposTotales: 10,
     cuposOcupados: estado == EstadoPartido.equipoCompleto ? 10 : 3,
     organizadorNombre: 'Lorgio',
-    soyOrganizador: true,
-    estoyUnido: true,
+    soyOrganizador: soyOrganizador,
+    estoyUnido: estoyUnido,
     estado: estado,
   );
 }
@@ -65,5 +70,68 @@ void main() {
     expect(find.textContaining('el equipo ya está completo'), findsOneWidget);
     // El botón "Completar equipo" ya no se ofrece
     expect(find.text('Completar equipo'), findsNothing);
+  });
+
+  group('Unirme al equipo (Issue #4)', () {
+    testWidgets('con cupos abiertos aparece el botón y avisa al tocarlo', (
+      tester,
+    ) async {
+      var llamadas = 0;
+      await tester.pumpWidget(
+        envolver(
+          TarjetaPartido(
+            partido: crearPartido(soyOrganizador: false, estoyUnido: false),
+            onUnirse: () => llamadas++,
+          ),
+        ),
+      );
+
+      expect(find.text('Organiza: Lorgio'), findsOneWidget);
+      await tester.tap(find.text('Unirme al equipo'));
+
+      expect(llamadas, 1);
+      expect(find.textContaining('No puedes unirte'), findsNothing);
+    });
+
+    testWidgets('con el equipo completo no hay botón y se explica el motivo', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        envolver(
+          TarjetaPartido(
+            partido: crearPartido(
+              estado: EstadoPartido.equipoCompleto,
+              soyOrganizador: false,
+              estoyUnido: false,
+            ),
+            onUnirse: () {},
+          ),
+        ),
+      );
+
+      expect(find.text('Unirme al equipo'), findsNothing);
+      expect(
+        find.text(
+          'No puedes unirte. Convocatoria cerrada: el equipo ya está completo.',
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('si ya forma parte del equipo no hay botón y se indica', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        envolver(
+          TarjetaPartido(
+            partido: crearPartido(soyOrganizador: false, estoyUnido: true),
+            onUnirse: () {},
+          ),
+        ),
+      );
+
+      expect(find.text('Unirme al equipo'), findsNothing);
+      expect(find.text('Ya formas parte de este equipo.'), findsOneWidget);
+    });
   });
 }

@@ -77,6 +77,28 @@ class TarjetaPartido extends StatelessWidget {
                         ),
                       ],
                     ),
+                    if (!partido.soyOrganizador) ...[
+                      const SizedBox(height: 3),
+                      Row(
+                        children: [
+                          const Icon(
+                            LucideIcons.user,
+                            size: 13,
+                            color: TemaApp.textoSecundario,
+                          ),
+                          const SizedBox(width: 5),
+                          Expanded(
+                            child: Text(
+                              'Organiza: ${partido.organizadorNombre}',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: TemaApp.textoSecundario,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                     const SizedBox(height: 3),
                     Row(
                       children: [
@@ -288,75 +310,78 @@ class TarjetaPartido extends StatelessWidget {
               ),
             ],
           ] else ...[
-            // Para participante / jugador
-            if (partido.estoyUnido) ...[
-              const SizedBox(height: 12),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: TemaApp.azulSuave,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Row(
-                  children: [
-                    Icon(
-                      LucideIcons.circleCheck,
-                      size: 16,
-                      color: TemaApp.azulDeportivo,
-                    ),
-                    SizedBox(width: 8),
-                    Text(
-                      'Ya formas parte de este equipo',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF075985),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ] else if (partido.puedeAgregarJugador && onUnirse != null) ...[
+            // PARA QUIEN NO ORGANIZA (Issue #4): la regla puedeUnirse decide
+            if (partido.puedeUnirse && onUnirse != null) ...[
               const SizedBox(height: 14),
-              OutlinedButton.icon(
+              ElevatedButton.icon(
                 onPressed: onUnirse,
                 icon: const Icon(LucideIcons.userPlus, size: 18),
                 label: const Text('Unirme al equipo'),
-                style: OutlinedButton.styleFrom(
-                  minimumSize: const Size(double.infinity, 44),
+                style: ElevatedButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 46),
                 ),
               ),
-            ] else ...[
-              // RESTRICCIÓN BLOQUEADA CON EXPLICACIÓN CLARA DEL MOTIVO
+            ] else if (partido.estoyUnido) ...[
+              // Rechazo del criterio 4: ya forma parte del equipo
               const SizedBox(height: 12),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFEF2F2),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFFFECACA)),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(LucideIcons.ban, size: 16, color: Color(0xFFDC2626)),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'No puedes unirte: ${partido.motivoBloqueoAgregarJugador ?? "Convocatoria no disponible"}',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFFB91C1C),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+              _avisoUnion(
+                partido.motivoRechazoUnirse ?? 'Ya formas parte de este equipo.',
+                icono: LucideIcons.circleCheck,
+                fondo: TemaApp.azulSuave,
+                borde: const Color(0xFFBAE6FD),
+                color: const Color(0xFF075985),
+              ),
+            ] else if (!partido.puedeUnirse) ...[
+              // Rechazo del criterio 3: equipo completo (se explica el motivo)
+              const SizedBox(height: 12),
+              _avisoUnion(
+                'No puedes unirte. '
+                '${partido.motivoRechazoUnirse ?? "Convocatoria no disponible."}',
+                icono: LucideIcons.ban,
+                fondo: const Color(0xFFFEF2F2),
+                borde: const Color(0xFFFECACA),
+                color: const Color(0xFFB91C1C),
               ),
             ],
           ],
+        ],
+      ),
+    );
+  }
+
+  Widget _avisoUnion(
+    String texto, {
+    required IconData icono,
+    required Color fondo,
+    required Color borde,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: fondo,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: borde),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 1),
+            child: Icon(icono, size: 16, color: color),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              texto,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: color,
+                height: 1.35,
+              ),
+            ),
+          ),
         ],
       ),
     );
