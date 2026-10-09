@@ -67,6 +67,13 @@ flutter test test/restriccion_partido_test.dart
 ```
 Detalle en [`docs/task-03-lifecycle-restriction.md`](docs/task-03-lifecycle-restriction.md).
 
+Pruebas de la historia "Unirse a un partido" (issues #2, #3 y #4):
+```bash
+flutter test test/union_partido_test.dart          # regla (casos permitidos y rechazados)
+flutter test test/union_almacenamiento_test.dart   # unión guardada en SQLite
+flutter test test/tarjeta_partido_test.dart        # botón y motivo del rechazo en pantalla
+```
+
 > **Base de datos:** los partidos se guardan en **SQLite** (`sqflite`) en Android / iOS. En el navegador (Chrome) `sqflite` no está disponible, por lo que se usa `shared_preferences` como respaldo solo para desarrollo.
 
 ---

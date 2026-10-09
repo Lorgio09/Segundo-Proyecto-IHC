@@ -10,7 +10,8 @@ import '../modelos/modelo_usuario.dart';
 
 /// Servicio de persistencia local.
 ///
-/// - Partidos: base de datos SQLite (tabla `partidos`) en Android / iOS / escritorio.
+/// - Partidos e inscripciones: base de datos SQLite (tablas `partidos` e
+///   `inscripciones`) en Android / iOS / escritorio.
 ///   En navegador web, donde `sqflite` no existe, se usa SharedPreferences como
 ///   respaldo para poder seguir desarrollando en Chrome.
 /// - Sesión y usuarios registrados: SharedPreferences.
@@ -67,12 +68,16 @@ class ServicioAlmacenamiento {
     }).toList();
   }
 
+
   // ---------------------------------------------------------------------------
   // Base de datos SQLite
+  //   partidos:      un partido por fila, guardado bajo el correo de su organizador
+  //   inscripciones: qué estudiante se unió a qué partido (Issue #3)
   // ---------------------------------------------------------------------------
 
   static const String _nombreBaseDatos = 'unisport.db';
   static const String _tablaPartidos = 'partidos';
+  static const String _tablaInscripciones = 'inscripciones';
 
   // Una sola conexión compartida por todas las instancias del servicio
   static Future<Database>? _conexion;
@@ -88,6 +93,16 @@ class ServicioAlmacenamiento {
     if (actual != null) await (await actual).close();
   }
 
+  static Future<void> _crearTablaInscripciones(DatabaseExecutor db) =>
+      db.execute('''
+        CREATE TABLE $_tablaInscripciones (
+          correo_organizador TEXT NOT NULL,
+          partido_id         TEXT NOT NULL,
+          correo_jugador     TEXT NOT NULL,
+          PRIMARY KEY (correo_organizador, partido_id, correo_jugador)
+        )
+      ''');
+
   Future<Database> _abrirBaseDatos() {
     return _conexion ??= () async {
       final ruta =
@@ -95,26 +110,33 @@ class ServicioAlmacenamiento {
           ruta_utils.join(await getDatabasesPath(), _nombreBaseDatos);
       return openDatabase(
         ruta,
-        version: 1,
-        onCreate: (db, version) => db.execute('''
-          CREATE TABLE $_tablaPartidos (
-            correo_usuario    TEXT    NOT NULL,
-            id                TEXT    NOT NULL,
-            titulo            TEXT    NOT NULL,
-            disciplina        TEXT    NOT NULL,
-            icono             TEXT    NOT NULL,
-            ubicacion         TEXT    NOT NULL,
-            fecha_hora        TEXT    NOT NULL,
-            cupos_totales     INTEGER NOT NULL,
-            cupos_ocupados    INTEGER NOT NULL,
-            organizador_nombre TEXT   NOT NULL,
-            soy_organizador   INTEGER NOT NULL,
-            estoy_unido       INTEGER NOT NULL,
-            estado            TEXT    NOT NULL,
-            orden             INTEGER NOT NULL,
-            PRIMARY KEY (correo_usuario, id)
-          )
-        '''),
+        version: 2,
+        onCreate: (db, version) async {
+          await db.execute('''
+            CREATE TABLE $_tablaPartidos (
+              correo_usuario    TEXT    NOT NULL,
+              id                TEXT    NOT NULL,
+              titulo            TEXT    NOT NULL,
+              disciplina        TEXT    NOT NULL,
+              icono             TEXT    NOT NULL,
+              ubicacion         TEXT    NOT NULL,
+              fecha_hora        TEXT    NOT NULL,
+              cupos_totales     INTEGER NOT NULL,
+              cupos_ocupados    INTEGER NOT NULL,
+              organizador_nombre TEXT   NOT NULL,
+              soy_organizador   INTEGER NOT NULL,
+              estoy_unido       INTEGER NOT NULL,
+              estado            TEXT    NOT NULL,
+              orden             INTEGER NOT NULL,
+              PRIMARY KEY (correo_usuario, id)
+            )
+          ''');
+          await _crearTablaInscripciones(db);
+        },
+        // Teléfonos que ya tenían la versión 1 solo reciben la tabla nueva
+        onUpgrade: (db, anterior, nueva) async {
+          if (anterior < 2) await _crearTablaInscripciones(db);
+        },
       );
     }();
   }
@@ -153,17 +175,34 @@ class ServicioAlmacenamiento {
         EstadoPartido.cuposAbiertos,
   );
 
+  /// El mismo partido visto por otro estudiante (no organizador).
+  ModeloPartido _vistoPorJugador(
+    ModeloPartido p, {
+    required String correoOrganizador,
+    required String correoJugador,
+    required bool inscrito,
+  }) {
+    final esOrganizador = correoOrganizador == correoJugador;
+    return p.copyWith(
+      soyOrganizador: esOrganizador,
+      estoyUnido: esOrganizador || inscrito,
+    );
+  }
+
   // ---------------------------------------------------------------------------
-  // Partidos (uno por usuario, identificado por su correo)
+  // Partidos que organiza cada usuario
   // ---------------------------------------------------------------------------
 
-  // 3 - GUARDAR: reemplaza los partidos del usuario dentro de una transacción
-  // (cubre crear, editar, eliminar y cambiar de estado).
+  // 3 - GUARDAR: reemplaza los partidos que organiza el usuario dentro de una
+  // transacción (cubre crear, editar, eliminar y cambiar de estado).
+  // Los partidos de otros a los que se unió no se guardan aquí, sino como
+  // inscripciones.
   Future<void> guardarPartidos(
     String correo,
     List<ModeloPartido> partidos,
   ) async {
-    if (kIsWeb) return _guardarPartidosPrefs(correo, partidos);
+    final propios = partidos.where((p) => p.soyOrganizador).toList();
+    if (kIsWeb) return _guardarPartidosPrefs(correo, propios);
 
     final bd = await _abrirBaseDatos();
     await bd.transaction((txn) async {
@@ -173,10 +212,21 @@ class ServicioAlmacenamiento {
         whereArgs: [correo],
       );
       final lote = txn.batch();
-      for (var i = 0; i < partidos.length; i++) {
-        lote.insert(_tablaPartidos, _aFila(correo, partidos[i], i));
+      for (var i = 0; i < propios.length; i++) {
+        lote.insert(_tablaPartidos, _aFila(correo, propios[i], i));
       }
       await lote.commit(noResult: true);
+
+      // Si el organizador eliminó un partido, se borran sus inscripciones
+      final ids = propios.map((p) => p.id).toList();
+      await txn.delete(
+        _tablaInscripciones,
+        where: ids.isEmpty
+            ? 'correo_organizador = ?'
+            : 'correo_organizador = ? AND partido_id NOT IN '
+                  '(${List.filled(ids.length, '?').join(', ')})',
+        whereArgs: [correo, ...ids],
+      );
     });
   }
 
@@ -210,15 +260,127 @@ class ServicioAlmacenamiento {
         where: 'correo_usuario = ?',
         whereArgs: [correo],
       );
+      await bd.delete(
+        _tablaInscripciones,
+        where: 'correo_organizador = ?',
+        whereArgs: [correo],
+      );
     }
     await _borrarPartidosPrefs(correo);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Explorar y unirse a partidos de otros estudiantes (Issue #3)
+  // ---------------------------------------------------------------------------
+
+  /// Partidos organizados por otros estudiantes, vistos por [correoJugador]:
+  /// cada uno indica si ese estudiante ya está inscrito.
+  Future<List<PartidoPublicado>> obtenerPartidosParaExplorar(
+    String correoJugador,
+  ) async {
+    if (kIsWeb) return _explorarPrefs(correoJugador);
+
+    final bd = await _abrirBaseDatos();
+    final filas = await bd.query(
+      _tablaPartidos,
+      where: 'correo_usuario <> ?',
+      whereArgs: [correoJugador],
+      orderBy: 'correo_usuario ASC, orden ASC',
+    );
+    final inscripciones = await bd.query(
+      _tablaInscripciones,
+      where: 'correo_jugador = ?',
+      whereArgs: [correoJugador],
+    );
+    final inscritos = {
+      for (final i in inscripciones)
+        '${i['correo_organizador']}|${i['partido_id']}',
+    };
+
+    return [
+      for (final f in filas)
+        (
+          correoOrganizador: f['correo_usuario'] as String,
+          partido: _vistoPorJugador(
+            _desdeFila(f),
+            correoOrganizador: f['correo_usuario'] as String,
+            correoJugador: correoJugador,
+            inscrito: inscritos.contains('${f['correo_usuario']}|${f['id']}'),
+          ),
+        ),
+    ];
+  }
+
+  /// Partidos de otros a los que [correoJugador] se unió (para "Como jugador").
+  Future<List<ModeloPartido>> obtenerPartidosUnidos(String correoJugador) async {
+    final todos = await obtenerPartidosParaExplorar(correoJugador);
+    return [
+      for (final item in todos)
+        if (item.partido.estoyUnido) item.partido,
+    ];
+  }
+
+  /// Une a [correoJugador] al partido [partidoId] de [correoOrganizador].
+  ///
+  /// Aplica la regla del modelo ([ModeloPartido.unirse]) sobre el dato guardado
+  /// y, si se acepta, actualiza los cupos y registra la inscripción en una sola
+  /// transacción. Si se rechaza, lanza [StateError] con el motivo y no guarda nada.
+  Future<ModeloPartido> unirseAPartido({
+    required String correoJugador,
+    required String correoOrganizador,
+    required String partidoId,
+  }) async {
+    if (kIsWeb) {
+      return _unirsePrefs(correoJugador, correoOrganizador, partidoId);
+    }
+
+    final bd = await _abrirBaseDatos();
+    return bd.transaction((txn) async {
+      final filas = await txn.query(
+        _tablaPartidos,
+        where: 'correo_usuario = ? AND id = ?',
+        whereArgs: [correoOrganizador, partidoId],
+      );
+      if (filas.isEmpty) throw StateError('Este partido ya no existe.');
+
+      final yaInscrito = (await txn.query(
+        _tablaInscripciones,
+        where: 'correo_organizador = ? AND partido_id = ? AND correo_jugador = ?',
+        whereArgs: [correoOrganizador, partidoId, correoJugador],
+      )).isNotEmpty;
+
+      final partido = _vistoPorJugador(
+        _desdeFila(filas.first),
+        correoOrganizador: correoOrganizador,
+        correoJugador: correoJugador,
+        inscrito: yaInscrito,
+      );
+
+      final unido = partido.unirse(); // lanza StateError con el motivo
+
+      await txn.update(
+        _tablaPartidos,
+        {'cupos_ocupados': unido.cuposOcupados, 'estado': unido.estado.name},
+        where: 'correo_usuario = ? AND id = ?',
+        whereArgs: [correoOrganizador, partidoId],
+      );
+      await txn.insert(_tablaInscripciones, {
+        'correo_organizador': correoOrganizador,
+        'partido_id': partidoId,
+        'correo_jugador': correoJugador,
+      });
+      return unido;
+    });
   }
 
   // ---------------------------------------------------------------------------
   // Respaldo con SharedPreferences (web) y origen de la migración a SQLite
   // ---------------------------------------------------------------------------
 
-  String _clavePartidos(String correo) => 'unisport_partidos_$correo';
+  static const String _prefijoPartidos = 'unisport_partidos_';
+  static const String _claveInscripciones = 'unisport_inscripciones';
+
+  String _clavePartidos(String correo) => '$_prefijoPartidos$correo';
 
   Future<void> _guardarPartidosPrefs(
     String correo,
@@ -249,4 +411,72 @@ class ServicioAlmacenamiento {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_clavePartidos(correo));
   }
+
+  Future<Set<String>> _inscripcionesPrefs(SharedPreferences prefs) async =>
+      (prefs.getStringList(_claveInscripciones) ?? const []).toSet();
+
+  String _claveInscripcion(String organizador, String id, String jugador) =>
+      jsonEncode([organizador, id, jugador]);
+
+  Future<List<PartidoPublicado>> _explorarPrefs(String correoJugador) async {
+    final prefs = await SharedPreferences.getInstance();
+    final inscripciones = await _inscripcionesPrefs(prefs);
+    final resultado = <PartidoPublicado>[];
+    final claves =
+        prefs.getKeys().where((k) => k.startsWith(_prefijoPartidos)).toList()
+          ..sort();
+    for (final clave in claves) {
+      final organizador = clave.substring(_prefijoPartidos.length);
+      if (organizador == correoJugador) continue;
+      for (final p in await _obtenerPartidosPrefs(organizador)) {
+        resultado.add((
+          correoOrganizador: organizador,
+          partido: _vistoPorJugador(
+            p,
+            correoOrganizador: organizador,
+            correoJugador: correoJugador,
+            inscrito: inscripciones.contains(
+              _claveInscripcion(organizador, p.id, correoJugador),
+            ),
+          ),
+        ));
+      }
+    }
+    return resultado;
+  }
+
+  Future<ModeloPartido> _unirsePrefs(
+    String correoJugador,
+    String correoOrganizador,
+    String partidoId,
+  ) async {
+    final prefs = await SharedPreferences.getInstance();
+    final inscripciones = await _inscripcionesPrefs(prefs);
+    final clave = _claveInscripcion(correoOrganizador, partidoId, correoJugador);
+
+    final partidos = await _obtenerPartidosPrefs(correoOrganizador);
+    final indice = partidos.indexWhere((p) => p.id == partidoId);
+    if (indice < 0) throw StateError('Este partido ya no existe.');
+
+    final unido = _vistoPorJugador(
+      partidos[indice],
+      correoOrganizador: correoOrganizador,
+      correoJugador: correoJugador,
+      inscrito: inscripciones.contains(clave),
+    ).unirse(); // lanza StateError con el motivo
+
+    partidos[indice] = partidos[indice].copyWith(
+      cuposOcupados: unido.cuposOcupados,
+      estado: unido.estado,
+    );
+    await _guardarPartidosPrefs(correoOrganizador, partidos);
+    await prefs.setStringList(
+      _claveInscripciones,
+      (inscripciones..add(clave)).toList(),
+    );
+    return unido;
+  }
 }
+
+/// Un partido de otro estudiante junto con el correo de quien lo organiza.
+typedef PartidoPublicado = ({String correoOrganizador, ModeloPartido partido});

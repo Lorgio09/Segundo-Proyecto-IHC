@@ -7,6 +7,7 @@ import '../servicios/servicio_autenticacion.dart';
 import '../tema/tema_app.dart';
 import '../widgets/tarjeta_partido.dart';
 import 'vista_crear_partido.dart';
+import 'vista_explorar_partidos.dart';
 import 'vista_login.dart';
 
 /// Ruta Privada: Mis Partidos (Protegida)
@@ -55,18 +56,31 @@ class _VistaMisPartidosState extends State<VistaMisPartidos> {
     });
   }
 
-  // 5 - RECUPERAR: lee lo guardado al abrir la pantalla.
+  // 5 - RECUPERAR: lee lo guardado al abrir la pantalla: los partidos que
+  // organizo y los de otros estudiantes a los que me uní.
   Future<void> _cargarPartidos() async {
     final usuario = widget.servicioAuth.usuarioActual;
     if (usuario == null) return;
 
-    final guardados = await _almacenamiento.obtenerPartidos(usuario.correo);
+    final propios = await _almacenamiento.obtenerPartidos(usuario.correo);
+    final unidos = await _almacenamiento.obtenerPartidosUnidos(usuario.correo);
     if (!mounted) return;
 
     setState(() {
-      _partidos = guardados;
+      _partidos = [...propios, ...unidos];
       _cargando = false;
     });
+  }
+
+  // Abre "Explorar partidos" y, al volver, recarga para mostrar las uniones nuevas
+  Future<void> _explorarPartidos() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => VistaExplorarPartidos(servicioAuth: widget.servicioAuth),
+      ),
+    );
+    if (mounted) await _cargarPartidos();
   }
 
   // 1-4: CAPTURAR (formulario) -> CONSTRUIR -> GUARDAR -> MOSTRAR
@@ -248,12 +262,6 @@ class _VistaMisPartidosState extends State<VistaMisPartidos> {
         'Jugador agregado (${partido.cuposOcupados + 1}/${partido.cuposTotales}).',
   );
 
-  // ACCIÓN "UNIRSE AL EQUIPO" (jugador)
-  Future<void> _unirseAPartido(ModeloPartido partido) => _sumarJugador(
-    partido,
-    mensajeExito: '¡Te has unido a "${partido.titulo}"!',
-  );
-
   Future<void> _cerrarSesion() async {
     final confirmar = await showDialog<bool>(
       context: context,
@@ -309,6 +317,11 @@ class _VistaMisPartidosState extends State<VistaMisPartidos> {
         title: const Text('Mis partidos'),
         actions: [
           IconButton(
+            tooltip: 'Explorar partidos',
+            icon: const Icon(LucideIcons.compass, size: 21),
+            onPressed: _explorarPartidos,
+          ),
+          IconButton(
             tooltip: 'Cerrar sesión',
             icon: const Icon(
               LucideIcons.logOut,
@@ -343,6 +356,15 @@ class _VistaMisPartidosState extends State<VistaMisPartidos> {
                   usuario.correo,
                   usuario.carrera,
                 ),
+                const SizedBox(height: 14),
+                OutlinedButton.icon(
+                  onPressed: _explorarPartidos,
+                  icon: const Icon(LucideIcons.compass, size: 18),
+                  label: const Text('Explorar partidos para unirme'),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(double.infinity, 46),
+                  ),
+                ),
                 const SizedBox(height: 24),
                 _construirEncabezadoLista(partidosFiltrados.length),
                 const SizedBox(height: 12),
@@ -363,7 +385,6 @@ class _VistaMisPartidosState extends State<VistaMisPartidos> {
                       onEditar: () => _editarPartido(p),
                       onAgregarJugador: () => _agregarJugador(p),
                       onEliminar: () => _eliminarPartido(p),
-                      onUnirse: () => _unirseAPartido(p),
                     ),
                   ),
               ],
@@ -553,8 +574,10 @@ class _VistaMisPartidosState extends State<VistaMisPartidos> {
             style: TemaApp.titulo(tamano: 15),
           ),
           const SizedBox(height: 4),
-          const Text(
-            'Toca "Crear partido" para agregar uno.',
+          Text(
+            _filtroActivo == 'unido'
+                ? 'Toca "Explorar partidos para unirme" para encontrar uno.'
+                : 'Toca "Crear partido" para agregar uno.',
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 13, color: TemaApp.textoSecundario),
           ),
