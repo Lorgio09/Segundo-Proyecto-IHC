@@ -8,6 +8,16 @@ enum EstadoPartido {
 }
 
 class ModeloPartido {
+  /// Deportes disponibles (formulario de creación y filtro de búsqueda).
+  static const List<String> disciplinas = [
+    'Futsal',
+    'Fútbol',
+    'Básquetbol',
+    'Voleibol',
+    'Tenis',
+    'Otro',
+  ];
+
   final String id;
   final String titulo;
   final String disciplina;

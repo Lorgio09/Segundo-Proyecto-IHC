@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../modelos/filtro_partidos.dart';
 import '../modelos/modelo_partido.dart';
 import '../tema/iconos_deporte.dart';
 import '../tema/tema_app.dart';
@@ -28,14 +29,7 @@ class VistaCrearPartido extends StatefulWidget {
 class _VistaCrearPartidoState extends State<VistaCrearPartido> {
   bool get _esEdicion => widget.partidoAEditar != null;
 
-  static const List<String> _disciplinas = [
-    'Futsal',
-    'Fútbol',
-    'Básquetbol',
-    'Voleibol',
-    'Tenis',
-    'Otro',
-  ];
+  static const List<String> _disciplinas = ModeloPartido.disciplinas;
   static const int _cuposMin = 2;
   static const int _cuposMax = 30;
 
@@ -529,6 +523,21 @@ class _VistaCrearPartidoState extends State<VistaCrearPartido> {
                       validator: (v) => (v?.trim().isEmpty ?? true)
                           ? 'Escribe el lugar del partido'
                           : null,
+                    ),
+                    const SizedBox(height: 10),
+                    // Atajos de lugar (Issue #10); se puede escribir otro lugar
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        for (final lugar in FiltroPartidos.lugaresSugeridos)
+                          _chipRapido(
+                            texto: lugar,
+                            icono: LucideIcons.mapPin,
+                            activo: _ubicacionCtrl.text.trim() == lugar,
+                            alTocar: () => _ubicacionCtrl.text = lugar,
+                          ),
+                      ],
                     ),
                     const SizedBox(height: 20),
 

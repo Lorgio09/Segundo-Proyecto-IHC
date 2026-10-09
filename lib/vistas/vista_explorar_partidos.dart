@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../modelos/filtro_partidos.dart';
 import '../modelos/modelo_partido.dart';
 import '../servicios/servicio_almacenamiento.dart';
 import '../servicios/servicio_autenticacion.dart';
 import '../tema/tema_app.dart';
+import '../widgets/panel_filtros.dart';
 import '../widgets/tarjeta_partido.dart';
 
-/// Explorar partidos organizados por otros estudiantes y unirse a ellos
-/// (historia #1: "Como estudiante, quiero unirme a un partido con cupos abiertos").
+/// Explorar partidos organizados por otros estudiantes, buscarlos, filtrarlos
+/// (requisito #6) y unirse a ellos (requisito #5).
 class VistaExplorarPartidos extends StatefulWidget {
   final ServicioAutenticacion servicioAuth;
 
@@ -21,7 +23,12 @@ class VistaExplorarPartidos extends StatefulWidget {
 class _VistaExplorarPartidosState extends State<VistaExplorarPartidos> {
   final ServicioAlmacenamiento _almacenamiento = ServicioAlmacenamiento();
   List<PartidoPublicado> _partidos = [];
+  List<String> _lugares = FiltroPartidos.lugaresSugeridos;
+  FiltroPartidos _filtro = const FiltroPartidos();
   bool _cargando = true;
+
+  // Evita que una consulta lenta pise el resultado de una más reciente
+  int _consulta = 0;
 
   @override
   void initState() {
@@ -29,18 +36,29 @@ class _VistaExplorarPartidosState extends State<VistaExplorarPartidos> {
     _cargar();
   }
 
+  // Interfaz -> consulta -> base de datos: cada cambio de filtro vuelve a
+  // pedir los partidos a SQLite con buscarPartidos.
   Future<void> _cargar() async {
     final usuario = widget.servicioAuth.usuarioActual;
     if (usuario == null) return;
 
-    final partidos = await _almacenamiento.obtenerPartidosParaExplorar(
+    final numero = ++_consulta;
+    final partidos = await _almacenamiento.buscarPartidos(
       usuario.correo,
+      _filtro,
     );
-    if (!mounted) return;
+    final lugares = await _almacenamiento.obtenerLugares(usuario.correo);
+    if (!mounted || numero != _consulta) return;
     setState(() {
       _partidos = partidos;
+      _lugares = lugares;
       _cargando = false;
     });
+  }
+
+  void _cambiarFiltro(FiltroPartidos nuevo) {
+    setState(() => _filtro = nuevo);
+    _cargar();
   }
 
   void _avisar(String texto, {bool error = false}) {
@@ -117,21 +135,46 @@ class _VistaExplorarPartidosState extends State<VistaExplorarPartidos> {
                     height: 1.4,
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 14),
+                PanelFiltros(
+                  filtro: _filtro,
+                  lugares: _lugares,
+                  alCambiar: _cambiarFiltro,
+                ),
+                const SizedBox(height: 14),
                 if (_cargando)
                   const Padding(
                     padding: EdgeInsets.symmetric(vertical: 30),
                     child: Center(child: CircularProgressIndicator()),
                   )
+                else if (_partidos.isEmpty && _filtro.estaActivo)
+                  MensajeSinResultados(
+                    alQuitarFiltros: () =>
+                        _cambiarFiltro(const FiltroPartidos()),
+                  )
                 else if (_partidos.isEmpty)
                   _construirEstadoVacio()
-                else
+                else ...[
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: Text(
+                      _partidos.length == 1
+                          ? '1 partido encontrado'
+                          : '${_partidos.length} partidos encontrados',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: TemaApp.textoSecundario,
+                      ),
+                    ),
+                  ),
                   ..._partidos.map(
                     (item) => TarjetaPartido(
                       partido: item.partido,
                       onUnirse: () => _unirse(item),
                     ),
                   ),
+                ],
               ],
             ),
           ),
