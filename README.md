@@ -74,6 +74,13 @@ flutter test test/union_almacenamiento_test.dart   # unión guardada en SQLite
 flutter test test/tarjeta_partido_test.dart        # botón y motivo del rechazo en pantalla
 ```
 
+Pruebas de "Buscar y filtrar partidos" (requisito #6, issues #9, #10 y #11):
+```bash
+flutter test test/filtro_partidos_test.dart    # consulta SQL: con resultados, sin resultados y combinados
+flutter test test/panel_filtros_test.dart      # filtros activos, quitar filtros y mensaje sin resultados
+flutter test test/explorar_filtros_test.dart   # punta a punta: pantalla -> consulta -> SQLite
+```
+
 > **Base de datos:** los partidos se guardan en **SQLite** (`sqflite`) en Android / iOS. En el navegador (Chrome) `sqflite` no está disponible, por lo que se usa `shared_preferences` como respaldo solo para desarrollo.
 
 ---
