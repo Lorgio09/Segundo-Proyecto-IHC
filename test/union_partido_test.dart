@@ -11,6 +11,7 @@ ModeloPartido crearPartido({
   EstadoPartido estado = EstadoPartido.cuposAbiertos,
   int cuposTotales = 10,
   int cuposOcupados = 3,
+  String fechaHora = '10/10/2099 · 19:00',
 }) {
   return ModeloPartido(
     id: 'p-1',
@@ -18,7 +19,7 @@ ModeloPartido crearPartido({
     disciplina: 'Futsal',
     icono: 'Futsal',
     ubicacion: 'Cancha 2',
-    fechaHora: '10/10/2026 · 19:00',
+    fechaHora: fechaHora,
     cuposTotales: cuposTotales,
     cuposOcupados: cuposOcupados,
     organizadorNombre: 'Diego',
@@ -98,5 +99,27 @@ void main() {
         expect(() => propio.unirse(), throwsStateError);
       },
     );
-  });
+  
+    test('Issue #7 (rechazado): no puede unirse a un partido cuya fecha ya pasó', () {
+      final pasado = crearPartido(fechaHora: '01/03/2024 · 18:00');
+
+      expect(pasado.fechaPasada, isTrue);
+      expect(pasado.estaDisponible, isFalse);
+      expect(pasado.puedeUnirse, isFalse);
+      expect(
+        pasado.motivoRechazoUnirse,
+        'El partido ya se jugó: su fecha ya pasó.',
+      );
+      expect(() => pasado.unirse(), throwsStateError);
+      expect(pasado.cuposOcupados, 3);
+    });
+
+    test('Issue #7 (permitido): un partido con fecha futura sí acepta unirse', () {
+      final futuro = crearPartido(fechaHora: '15/06/2099 · 09:30');
+
+      expect(futuro.fechaInicio, DateTime(2099, 6, 15, 9, 30));
+      expect(futuro.fechaPasada, isFalse);
+      expect(futuro.puedeUnirse, isTrue);
+    });
+});
 }

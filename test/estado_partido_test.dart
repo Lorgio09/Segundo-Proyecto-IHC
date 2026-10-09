@@ -20,7 +20,7 @@ ModeloPartido crearPartido({
     disciplina: 'Futsal',
     icono: 'Futsal',
     ubicacion: 'Cancha 2',
-    fechaHora: '10/10/2026 · 19:00',
+    fechaHora: '10/10/2099 · 19:00',
     cuposTotales: cuposTotales,
     cuposOcupados: cuposOcupados,
     organizadorNombre: 'Lorgio',

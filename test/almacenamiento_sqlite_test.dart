@@ -17,7 +17,7 @@ ModeloPartido crearPartido(String id, {String titulo = 'Futsal nocturno'}) {
     disciplina: 'Futsal',
     icono: 'Futsal',
     ubicacion: 'Cancha 2',
-    fechaHora: '10/10/2026 · 19:00',
+    fechaHora: '10/10/2099 · 19:00',
     cuposTotales: 10,
     cuposOcupados: 1,
     organizadorNombre: 'Lorgio',

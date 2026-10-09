@@ -39,6 +39,32 @@ class ModeloPartido {
   int get cuposRestantes => cuposTotales - cuposOcupados;
   bool get estaLleno => cuposRestantes <= 0;
 
+  /// Fecha y hora reales del partido, a partir del texto "dd/mm/aaaa · hh:mm"
+  /// que guarda el formulario. Es null si el texto no tiene ese formato.
+  DateTime? get fechaInicio => interpretarFechaHora(fechaHora);
+
+  /// ¿La fecha del partido ya pasó? (Issue #7)
+  bool get fechaPasada {
+    final fecha = fechaInicio;
+    return fecha != null && fecha.isBefore(DateTime.now());
+  }
+
+  /// Un partido está disponible si alguien podría unirse: tiene cupos abiertos
+  /// y su fecha todavía no pasó. Lo usa también el filtro "con cupos" (#6).
+  bool get estaDisponible => puedeAgregarJugador && !fechaPasada;
+
+  static final RegExp _formatoFechaHora = RegExp(
+    r'(\d{1,2})/(\d{1,2})/(\d{4})\D+(\d{1,2}):(\d{2})',
+  );
+
+  /// Convierte "dd/mm/aaaa · hh:mm" en una fecha real.
+  static DateTime? interpretarFechaHora(String texto) {
+    final m = _formatoFechaHora.firstMatch(texto);
+    if (m == null) return null;
+    int parte(int i) => int.parse(m.group(i)!);
+    return DateTime(parte(3), parte(2), parte(1), parte(4), parte(5));
+  }
+
   // ---------------------------------------------------------------------------
   // REGLA DE CAMBIO DE ESTADO
   //   Cupos abiertos --(Completar equipo)--> Equipo completo
@@ -124,7 +150,8 @@ class ModeloPartido {
   // REGLA DE UNIÓN AL PARTIDO (Issue #2, historia #1)
   //   Un estudiante puede unirse si:
   //   - no forma parte del equipo (el organizador ya cuenta como jugador), y
-  //   - el partido tiene cupos abiertos.
+  //   - el partido tiene cupos abiertos, y
+  //   - la fecha del partido todavía no pasó (Issue #7, historia #5).
   //   Al ocupar el último cupo, el partido pasa a "Equipo completo".
   // ---------------------------------------------------------------------------
 
@@ -135,6 +162,9 @@ class ModeloPartido {
   String? get motivoRechazoUnirse {
     if (soyOrganizador || estoyUnido) {
       return 'Ya formas parte de este equipo.';
+    }
+    if (fechaPasada) {
+      return 'El partido ya se jugó: su fecha ya pasó.';
     }
     return motivoBloqueoAgregarJugador;
   }
