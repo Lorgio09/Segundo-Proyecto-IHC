@@ -5,7 +5,7 @@
 > **Integrantes:**  
 > - Diego Astete Paz  
 > - Lorgio Leonardo Choque Severiche  
-> **Tecnología:** Flutter (Dart) - Móvil & Web
+> **Tecnología:** Flutter (Dart) - Móvil
 
 ---
 
