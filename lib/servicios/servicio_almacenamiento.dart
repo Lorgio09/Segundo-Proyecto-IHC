@@ -5,6 +5,7 @@ import 'package:path/path.dart' as ruta_utils;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite/sqflite.dart';
 
+import '../modelos/filtro_partidos.dart';
 import '../modelos/modelo_partido.dart';
 import '../modelos/modelo_usuario.dart';
 
@@ -310,15 +311,68 @@ class ServicioAlmacenamiento {
   /// cada uno indica si ese estudiante ya está inscrito.
   Future<List<PartidoPublicado>> obtenerPartidosParaExplorar(
     String correoJugador,
-  ) async {
-    if (kIsWeb) return _explorarPrefs(correoJugador);
+  ) => buscarPartidos(correoJugador, const FiltroPartidos());
+
+  // ---------------------------------------------------------------------------
+  // Buscar y filtrar partidos (Issue #9, requisito #6)
+  // ---------------------------------------------------------------------------
+
+  /// Busca entre los partidos de otros estudiantes aplicando [filtro] con una
+  /// consulta SQL (todos los filtros se combinan con AND).
+  /// [ahora] es la referencia para "hoy", "próximos 7 días" y fechas pasadas;
+  /// por defecto es el momento actual.
+  Future<List<PartidoPublicado>> buscarPartidos(
+    String correoJugador,
+    FiltroPartidos filtro, {
+    DateTime? ahora,
+  }) async {
+    final referencia = ahora ?? DateTime.now();
+    if (kIsWeb) {
+      return [
+        for (final item in await _explorarPrefs(correoJugador))
+          if (filtro.coincide(item.partido, referencia)) item,
+      ];
+    }
+
+    final condiciones = <String>['correo_usuario <> ?'];
+    final argumentos = <Object?>[correoJugador];
+
+    if (filtro.tieneTexto) {
+      condiciones.add("LOWER(titulo) LIKE ? ESCAPE '!'");
+      argumentos.add('%${_escaparLike(filtro.texto.trim().toLowerCase())}%');
+    }
+    if (filtro.deporte != null) {
+      condiciones.add('disciplina = ?');
+      argumentos.add(filtro.deporte);
+    }
+    if (filtro.lugar != null) {
+      condiciones.add("LOWER(ubicacion) LIKE ? ESCAPE '!'");
+      argumentos.add('%${_escaparLike(filtro.lugar!.toLowerCase())}%');
+    }
+    final intervalo = filtro.intervaloFechas(referencia);
+    if (intervalo != null) {
+      condiciones.add('fecha_inicio >= ? AND fecha_inicio < ?');
+      argumentos
+        ..add(intervalo.$1.millisecondsSinceEpoch)
+        ..add(intervalo.$2.millisecondsSinceEpoch);
+    }
+    if (filtro.soloConCupos) {
+      // Misma regla que ModeloPartido.estaDisponible (#5):
+      // cupos abiertos, quedan cupos y la fecha todavía no pasó.
+      condiciones.add(
+        "estado = 'cuposAbiertos' AND cupos_ocupados < cupos_totales "
+        'AND (fecha_inicio IS NULL OR fecha_inicio >= ?)',
+      );
+      argumentos.add(referencia.millisecondsSinceEpoch);
+    }
 
     final bd = await _abrirBaseDatos();
     final filas = await bd.query(
       _tablaPartidos,
-      where: 'correo_usuario <> ?',
-      whereArgs: [correoJugador],
-      orderBy: 'correo_usuario ASC, orden ASC',
+      where: condiciones.join(' AND '),
+      whereArgs: argumentos,
+      // Los más próximos primero; los que no tienen fecha, al final
+      orderBy: 'fecha_inicio IS NULL, fecha_inicio ASC, correo_usuario, orden',
     );
     final inscripciones = await bd.query(
       _tablaInscripciones,
@@ -343,6 +397,39 @@ class ServicioAlmacenamiento {
         ),
     ];
   }
+
+  /// Lugares para el filtro: los sugeridos y los que ya usan los partidos de
+  /// otros estudiantes guardados en la base de datos (sin repetir).
+  Future<List<String>> obtenerLugares(String correoJugador) async {
+    final List<String> existentes;
+    if (kIsWeb) {
+      existentes = [
+        for (final item in await _explorarPrefs(correoJugador))
+          item.partido.ubicacion,
+      ];
+    } else {
+      final bd = await _abrirBaseDatos();
+      final filas = await bd.rawQuery(
+        'SELECT DISTINCT ubicacion FROM $_tablaPartidos '
+        'WHERE correo_usuario <> ? ORDER BY ubicacion COLLATE NOCASE',
+        [correoJugador],
+      );
+      existentes = [for (final f in filas) f['ubicacion'] as String];
+    }
+
+    final vistos = <String>{};
+    return [
+      for (final lugar in [...FiltroPartidos.lugaresSugeridos, ...existentes])
+        if (lugar.trim().isNotEmpty && vistos.add(lugar.trim().toLowerCase()))
+          lugar.trim(),
+    ];
+  }
+
+  // Evita que % y _ escritos por el usuario actúen como comodines en LIKE
+  static String _escaparLike(String texto) => texto
+      .replaceAll('!', '!!')
+      .replaceAll('%', '!%')
+      .replaceAll('_', '!_');
 
   /// Partidos de otros a los que [correoJugador] se unió (para "Como jugador").
   Future<List<ModeloPartido>> obtenerPartidosUnidos(String correoJugador) async {
