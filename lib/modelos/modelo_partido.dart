@@ -120,6 +120,34 @@ class ModeloPartido {
     );
   }
 
+  // ---------------------------------------------------------------------------
+  // REGLA DE UNIÓN AL PARTIDO (Issue #2, historia #1)
+  //   Un estudiante puede unirse si:
+  //   - no forma parte del equipo (el organizador ya cuenta como jugador), y
+  //   - el partido tiene cupos abiertos.
+  //   Al ocupar el último cupo, el partido pasa a "Equipo completo".
+  // ---------------------------------------------------------------------------
+
+  /// ¿Puede el usuario actual unirse a este partido?
+  bool get puedeUnirse => motivoRechazoUnirse == null;
+
+  /// Motivo por el que se rechaza la unión, o null si está permitida.
+  String? get motivoRechazoUnirse {
+    if (soyOrganizador || estoyUnido) {
+      return 'Ya formas parte de este equipo.';
+    }
+    return motivoBloqueoAgregarJugador;
+  }
+
+  /// Acción "Unirme al equipo". Devuelve una copia con un cupo más ocupado y
+  /// el usuario marcado como unido. Lanza [StateError] con el motivo si la
+  /// regla lo rechaza; en ese caso el partido no cambia.
+  ModeloPartido unirse() {
+    final motivo = motivoRechazoUnirse;
+    if (motivo != null) throw StateError(motivo);
+    return agregarJugador(marcarComoUnido: true);
+  }
+
   /// Genera una copia inmutable con campos modificados para el flujo de edición.
   ModeloPartido copyWith({
     String? id,
