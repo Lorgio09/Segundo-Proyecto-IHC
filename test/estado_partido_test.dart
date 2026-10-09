@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:unisport/modelos/modelo_partido.dart';
 import 'package:unisport/servicios/servicio_almacenamiento.dart';
 
@@ -85,8 +86,16 @@ void main() {
   group('Conservar el cambio después de recargar', () {
     const correo = 'lorgio@unisport.edu';
 
-    setUp(() {
+    setUpAll(() {
+      sqfliteFfiInit();
+      databaseFactory = databaseFactoryFfi;
+    });
+
+    setUp(() async {
       SharedPreferences.setMockInitialValues({});
+      await ServicioAlmacenamiento.reiniciarBaseDatos(
+        ruta: inMemoryDatabasePath,
+      );
     });
 
     test('el estado Equipo completo se guarda y se recupera', () async {

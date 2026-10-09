@@ -199,8 +199,12 @@ class _VistaMisPartidosState extends State<VistaMisPartidos> {
     );
   }
 
-  // ACCIÓN "UNIRSE AL EQUIPO": aplica la restricción y persiste
-  Future<void> _unirseAPartido(ModeloPartido partido) async {
+  // Aplica la restricción "un equipo completo no permite agregar más jugadores".
+  // Si está bloqueada, explica el motivo; si no, suma el jugador y persiste.
+  Future<void> _sumarJugador(
+    ModeloPartido partido, {
+    required String mensajeExito,
+  }) async {
     final usuario = widget.servicioAuth.usuarioActual;
     if (usuario == null) return;
 
@@ -208,8 +212,8 @@ class _VistaMisPartidosState extends State<VistaMisPartidos> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            partido.motivoBloqueoAgregarJugador ??
-                'No se pueden agregar más jugadores a este equipo.',
+            'No se puede agregar jugadores. '
+            '${partido.motivoBloqueoAgregarJugador ?? "Convocatoria no disponible."}',
           ),
           backgroundColor: TemaApp.rojoAlerta,
         ),
@@ -227,10 +231,28 @@ class _VistaMisPartidosState extends State<VistaMisPartidos> {
 
     setState(() => _partidos = nuevaLista);
 
+    final completo = actualizado.estado == EstadoPartido.equipoCompleto;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('¡Te has unido a "${partido.titulo}"!')),
+      SnackBar(
+        content: Text(
+          completo ? '$mensajeExito ¡Equipo completo!' : mensajeExito,
+        ),
+      ),
     );
   }
+
+  // ACCIÓN "AGREGAR JUGADOR" (organizador)
+  Future<void> _agregarJugador(ModeloPartido partido) => _sumarJugador(
+    partido,
+    mensajeExito:
+        'Jugador agregado (${partido.cuposOcupados + 1}/${partido.cuposTotales}).',
+  );
+
+  // ACCIÓN "UNIRSE AL EQUIPO" (jugador)
+  Future<void> _unirseAPartido(ModeloPartido partido) => _sumarJugador(
+    partido,
+    mensajeExito: '¡Te has unido a "${partido.titulo}"!',
+  );
 
   Future<void> _cerrarSesion() async {
     final confirmar = await showDialog<bool>(
@@ -339,6 +361,7 @@ class _VistaMisPartidosState extends State<VistaMisPartidos> {
                       partido: p,
                       onCompletarEquipo: () => _completarEquipo(p),
                       onEditar: () => _editarPartido(p),
+                      onAgregarJugador: () => _agregarJugador(p),
                       onEliminar: () => _eliminarPartido(p),
                       onUnirse: () => _unirseAPartido(p),
                     ),

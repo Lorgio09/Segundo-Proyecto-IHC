@@ -60,6 +60,15 @@ flutter test test/estado_partido_test.dart
 ```
 Detalle de la tarea y de las pruebas en [`docs/task-02-state-tests.md`](docs/task-02-state-tests.md).
 
+Pruebas de la base de datos SQLite y de la restricción de la Tarea 3:
+```bash
+flutter test test/almacenamiento_sqlite_test.dart
+flutter test test/restriccion_partido_test.dart
+```
+Detalle en [`docs/task-03-lifecycle-restriction.md`](docs/task-03-lifecycle-restriction.md).
+
+> **Base de datos:** los partidos se guardan en **SQLite** (`sqflite`) en Android / iOS. En el navegador (Chrome) `sqflite` no está disponible, por lo que se usa `shared_preferences` como respaldo solo para desarrollo.
+
 ---
 
 ## ⚡ Cuentas Semilla para Pruebas (Seeds)

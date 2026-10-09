@@ -16,6 +16,10 @@ class TarjetaPartido extends StatelessWidget {
   final VoidCallback? onEliminar;
   final VoidCallback? onUnirse;
 
+  /// Acción del organizador: suma un jugador. Si la restricción lo bloquea
+  /// (equipo completo), el botón se ve apagado y explica el motivo.
+  final VoidCallback? onAgregarJugador;
+
   const TarjetaPartido({
     super.key,
     required this.partido,
@@ -23,6 +27,7 @@ class TarjetaPartido extends StatelessWidget {
     this.onEditar,
     this.onEliminar,
     this.onUnirse,
+    this.onAgregarJugador,
   });
 
   @override
@@ -187,46 +192,94 @@ class TarjetaPartido extends StatelessWidget {
               ),
             ],
           ),
-          // ACCIÓN: solo visible para el organizador mientras haya cupos abiertos
+          // ACCIONES DEL ORGANIZADOR
           if (partido.soyOrganizador) ...[
-            if (onCompletarEquipo != null && partido.puedeCompletarEquipo) ...[
+            if (onAgregarJugador != null ||
+                (onCompletarEquipo != null && partido.puedeCompletarEquipo)) ...[
               const SizedBox(height: 14),
-              ElevatedButton.icon(
-                onPressed: onCompletarEquipo,
-                icon: const Icon(LucideIcons.userCheck, size: 18),
-                label: const Text('Completar equipo'),
-                style: ElevatedButton.styleFrom(
-                  minimumSize: const Size(double.infinity, 46),
-                ),
+              Row(
+                children: [
+                  if (onAgregarJugador != null)
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: onAgregarJugador,
+                        icon: Icon(
+                          partido.puedeAgregarJugador
+                              ? LucideIcons.userPlus
+                              : LucideIcons.ban,
+                          size: 17,
+                        ),
+                        label: const Text('Agregar jugador'),
+                        style: OutlinedButton.styleFrom(
+                          minimumSize: const Size(0, 46),
+                          textStyle: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                          ),
+                          // Bloqueado: se ve apagado, pero al tocarlo explica el motivo
+                          foregroundColor: partido.puedeAgregarJugador
+                              ? TemaApp.textoPrincipal
+                              : const Color(0xFF94A3B8),
+                          backgroundColor: partido.puedeAgregarJugador
+                              ? TemaApp.superficie
+                              : TemaApp.superficieSuave,
+                        ),
+                      ),
+                    ),
+                  if (onAgregarJugador != null &&
+                      onCompletarEquipo != null &&
+                      partido.puedeCompletarEquipo)
+                    const SizedBox(width: 10),
+                  if (onCompletarEquipo != null && partido.puedeCompletarEquipo)
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: onCompletarEquipo,
+                        icon: const Icon(LucideIcons.userCheck, size: 17),
+                        label: const Text('Completar equipo'),
+                        style: ElevatedButton.styleFrom(
+                          minimumSize: const Size(0, 46),
+                          textStyle: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ],
-            if (completo) ...[
+            // MOTIVO DEL BLOQUEO, siempre visible cuando no se pueden agregar jugadores
+            if (!partido.puedeAgregarJugador) ...[
               const SizedBox(height: 12),
               Container(
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 decoration: BoxDecoration(
-                  color: TemaApp.verdeSuave,
+                  color: const Color(0xFFFEF2F2),
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: TemaApp.verdeDeportivo.withValues(alpha: 0.3),
-                  ),
+                  border: Border.all(color: const Color(0xFFFECACA)),
                 ),
-                child: const Row(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(
-                      LucideIcons.circleCheck,
-                      size: 16,
-                      color: TemaApp.verdeOscuro,
+                    const Padding(
+                      padding: EdgeInsets.only(top: 1),
+                      child: Icon(
+                        LucideIcons.ban,
+                        size: 16,
+                        color: Color(0xFFDC2626),
+                      ),
                     ),
-                    SizedBox(width: 8),
+                    const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'Convocatoria cerrada: El equipo ya completó todos sus cupos.',
-                        style: TextStyle(
+                        'No puedes agregar más jugadores. '
+                        '${partido.motivoBloqueoAgregarJugador ?? "Convocatoria cerrada."}',
+                        style: const TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
-                          color: TemaApp.verdeOscuro,
+                          color: Color(0xFFB91C1C),
+                          height: 1.35,
                         ),
                       ),
                     ),
