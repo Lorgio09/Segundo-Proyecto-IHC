@@ -27,6 +27,7 @@ class VistaMisPartidos extends StatefulWidget {
 class _VistaMisPartidosState extends State<VistaMisPartidos> {
   final ServicioAlmacenamiento _almacenamiento = ServicioAlmacenamiento();
   List<ModeloPartido> _partidos = [];
+  Map<String, List<String>> _jugadoresInscritos = {};
   bool _cargando = true;
   String _filtroActivo = 'todos';
 
@@ -64,10 +65,14 @@ class _VistaMisPartidosState extends State<VistaMisPartidos> {
 
     final propios = await _almacenamiento.obtenerPartidos(usuario.correo);
     final unidos = await _almacenamiento.obtenerPartidosUnidos(usuario.correo);
+    final inscritos = await _almacenamiento.obtenerJugadoresInscritos(
+      usuario.correo,
+    );
     if (!mounted) return;
 
     setState(() {
       _partidos = [...propios, ...unidos];
+      _jugadoresInscritos = inscritos;
       _cargando = false;
     });
   }
@@ -384,6 +389,9 @@ class _VistaMisPartidosState extends State<VistaMisPartidos> {
                       onCompletarEquipo: () => _completarEquipo(p),
                       onEditar: () => _editarPartido(p),
                       onAgregarJugador: () => _agregarJugador(p),
+                      jugadoresUnidos: p.soyOrganizador
+                          ? _jugadoresInscritos[p.id] ?? const []
+                          : null,
                       onEliminar: () => _eliminarPartido(p),
                     ),
                   ),

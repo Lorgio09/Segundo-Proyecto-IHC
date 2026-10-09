@@ -66,6 +66,7 @@ class _VistaExplorarPartidosState extends State<VistaExplorarPartidos> {
     try {
       final unido = await _almacenamiento.unirseAPartido(
         correoJugador: usuario.correo,
+        nombreJugador: usuario.nombre,
         correoOrganizador: item.correoOrganizador,
         partidoId: item.partido.id,
       );

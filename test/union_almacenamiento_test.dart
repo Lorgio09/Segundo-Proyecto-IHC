@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -16,6 +18,7 @@ ModeloPartido partidoDeLorgio({
   String id = 'p-1',
   int cuposTotales = 10,
   int cuposOcupados = 1,
+  String fechaHora = '10/10/2099 · 19:00',
 }) {
   return ModeloPartido(
     id: id,
@@ -23,7 +26,7 @@ ModeloPartido partidoDeLorgio({
     disciplina: 'Futsal',
     icono: 'Futsal',
     ubicacion: 'Cancha 2',
-    fechaHora: '10/10/2026 · 19:00',
+    fechaHora: fechaHora,
     cuposTotales: cuposTotales,
     cuposOcupados: cuposOcupados,
     organizadorNombre: 'Lorgio',
@@ -61,6 +64,7 @@ void main() {
 
     final unido = await ServicioAlmacenamiento().unirseAPartido(
       correoJugador: diego,
+      nombreJugador: 'Diego',
       correoOrganizador: lorgio,
       partidoId: 'p-1',
     );
@@ -82,6 +86,7 @@ void main() {
     await bd.guardarPartidos(lorgio, [partidoDeLorgio()]);
     await bd.unirseAPartido(
       correoJugador: diego,
+      nombreJugador: 'Diego',
       correoOrganizador: lorgio,
       partidoId: 'p-1',
     );
@@ -89,6 +94,7 @@ void main() {
     await expectLater(
       bd.unirseAPartido(
         correoJugador: diego,
+        nombreJugador: 'Diego',
         correoOrganizador: lorgio,
         partidoId: 'p-1',
       ),
@@ -113,6 +119,7 @@ void main() {
 
       final unido = await bd.unirseAPartido(
         correoJugador: diego,
+        nombreJugador: 'Diego',
         correoOrganizador: lorgio,
         partidoId: 'p-1',
       );
@@ -121,6 +128,7 @@ void main() {
       await expectLater(
         bd.unirseAPartido(
           correoJugador: ana,
+          nombreJugador: 'Ana',
           correoOrganizador: lorgio,
           partidoId: 'p-1',
         ),
@@ -145,6 +153,7 @@ void main() {
     await expectLater(
       bd.unirseAPartido(
         correoJugador: lorgio,
+        nombreJugador: 'Lorgio',
         correoOrganizador: lorgio,
         partidoId: 'p-1',
       ),
@@ -160,6 +169,7 @@ void main() {
       await bd.guardarPartidos(lorgio, [partidoDeLorgio()]);
       await bd.unirseAPartido(
         correoJugador: diego,
+        nombreJugador: 'Diego',
         correoOrganizador: lorgio,
         partidoId: 'p-1',
       );
@@ -170,4 +180,119 @@ void main() {
       expect(await bd.obtenerPartidosParaExplorar(diego), isEmpty);
     },
   );
+
+  test('Issue #7: no se puede unir a un partido pasado y no se guarda nada', () async {
+    final bd = ServicioAlmacenamiento();
+    await bd.guardarPartidos(lorgio, [
+      partidoDeLorgio(fechaHora: '01/03/2024 · 18:00'),
+    ]);
+
+    await expectLater(
+      bd.unirseAPartido(
+        correoJugador: diego,
+        nombreJugador: 'Diego',
+        correoOrganizador: lorgio,
+        partidoId: 'p-1',
+      ),
+      throwsA(
+        isA<StateError>().having(
+          (e) => e.message,
+          'motivo',
+          'El partido ya se jugó: su fecha ya pasó.',
+        ),
+      ),
+    );
+    expect((await bd.obtenerPartidos(lorgio)).single.cuposOcupados, 1);
+    expect(await bd.obtenerPartidosUnidos(diego), isEmpty);
+  });
+
+  test('Issue #8: el organizador ve quién se unió, también al recargar', () async {
+    final bd = ServicioAlmacenamiento();
+    await bd.guardarPartidos(lorgio, [partidoDeLorgio()]);
+    expect(await bd.obtenerJugadoresInscritos(lorgio), isEmpty);
+
+    for (final (correo, nombre) in [(diego, 'Diego'), (ana, 'Ana')]) {
+      await bd.unirseAPartido(
+        correoJugador: correo,
+        nombreJugador: nombre,
+        correoOrganizador: lorgio,
+        partidoId: 'p-1',
+      );
+    }
+
+    final inscritos = await ServicioAlmacenamiento().obtenerJugadoresInscritos(
+      lorgio,
+    );
+    expect(inscritos['p-1'], ['Diego', 'Ana']);
+  });
+
+  test('una base de datos de la versión 2 se actualiza sin perder datos', () async {
+    final carpeta = await Directory.systemTemp.createTemp('unisport_v2_');
+    final ruta = '${carpeta.path}/unisport.db';
+
+    // Base tal como quedó en los teléfonos con la versión anterior
+    final vieja = await databaseFactoryFfi.openDatabase(
+      ruta,
+      options: OpenDatabaseOptions(
+        version: 2,
+        onCreate: (db, _) async {
+          await db.execute('''
+            CREATE TABLE partidos (
+              correo_usuario TEXT NOT NULL, id TEXT NOT NULL,
+              titulo TEXT NOT NULL, disciplina TEXT NOT NULL,
+              icono TEXT NOT NULL, ubicacion TEXT NOT NULL,
+              fecha_hora TEXT NOT NULL, cupos_totales INTEGER NOT NULL,
+              cupos_ocupados INTEGER NOT NULL, organizador_nombre TEXT NOT NULL,
+              soy_organizador INTEGER NOT NULL, estoy_unido INTEGER NOT NULL,
+              estado TEXT NOT NULL, orden INTEGER NOT NULL,
+              PRIMARY KEY (correo_usuario, id))
+          ''');
+          await db.execute('''
+            CREATE TABLE inscripciones (
+              correo_organizador TEXT NOT NULL, partido_id TEXT NOT NULL,
+              correo_jugador TEXT NOT NULL,
+              PRIMARY KEY (correo_organizador, partido_id, correo_jugador))
+          ''');
+        },
+      ),
+    );
+    await vieja.insert('partidos', {
+      'correo_usuario': lorgio, 'id': 'p-1', 'titulo': 'Futsal',
+      'disciplina': 'Futsal', 'icono': 'Futsal', 'ubicacion': 'Cancha 2',
+      'fecha_hora': '10/10/2099 · 19:00', 'cupos_totales': 10,
+      'cupos_ocupados': 2, 'organizador_nombre': 'Lorgio',
+      'soy_organizador': 1, 'estoy_unido': 1, 'estado': 'cuposAbiertos',
+      'orden': 0,
+    });
+    await vieja.insert('inscripciones', {
+      'correo_organizador': lorgio, 'partido_id': 'p-1', 'correo_jugador': diego,
+    });
+    await vieja.close();
+
+    // La app nueva abre esa misma base
+    await ServicioAlmacenamiento.reiniciarBaseDatos(ruta: ruta);
+    final bd = ServicioAlmacenamiento();
+
+    expect((await bd.obtenerPartidos(lorgio)).single.cuposOcupados, 2);
+    // Inscripción antigua sin nombre: se muestra el correo
+    expect((await bd.obtenerJugadoresInscritos(lorgio))['p-1'], [diego]);
+    await bd.unirseAPartido(
+      correoJugador: ana,
+      nombreJugador: 'Ana',
+      correoOrganizador: lorgio,
+      partidoId: 'p-1',
+    );
+    expect((await bd.obtenerJugadoresInscritos(lorgio))['p-1'], [diego, 'Ana']);
+
+    // La fecha real quedó guardada en la columna nueva
+    await ServicioAlmacenamiento.reiniciarBaseDatos(ruta: inMemoryDatabasePath);
+    final revisada = await databaseFactoryFfi.openDatabase(ruta);
+    final fila = (await revisada.query('partidos')).single;
+    expect(
+      fila['fecha_inicio'],
+      DateTime(2099, 10, 10, 19).millisecondsSinceEpoch,
+    );
+    await revisada.close();
+    await carpeta.delete(recursive: true);
+  });
 }

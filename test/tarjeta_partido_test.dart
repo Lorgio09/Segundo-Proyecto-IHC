@@ -12,6 +12,7 @@ ModeloPartido crearPartido({
   EstadoPartido estado = EstadoPartido.cuposAbiertos,
   bool soyOrganizador = true,
   bool estoyUnido = true,
+  String fechaHora = '10/10/2099 · 19:00',
 }) {
   return ModeloPartido(
     id: 'p-1',
@@ -19,7 +20,7 @@ ModeloPartido crearPartido({
     disciplina: 'Futsal',
     icono: 'Futsal',
     ubicacion: 'Cancha 2',
-    fechaHora: '10/10/2026 · 19:00',
+    fechaHora: fechaHora,
     cuposTotales: 10,
     cuposOcupados: estado == EstadoPartido.equipoCompleto ? 10 : 3,
     organizadorNombre: 'Lorgio',
@@ -132,6 +133,55 @@ void main() {
 
       expect(find.text('Unirme al equipo'), findsNothing);
       expect(find.text('Ya formas parte de este equipo.'), findsOneWidget);
+    });
+  
+    testWidgets('si la fecha ya pasó no hay botón y se explica el motivo', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        envolver(
+          TarjetaPartido(
+            partido: crearPartido(
+              soyOrganizador: false,
+              estoyUnido: false,
+              fechaHora: '01/03/2024 · 18:00',
+            ),
+            onUnirse: () {},
+          ),
+        ),
+      );
+
+      expect(find.text('Unirme al equipo'), findsNothing);
+      expect(
+        find.text('No puedes unirte. El partido ya se jugó: su fecha ya pasó.'),
+        findsOneWidget,
+      );
+    });
+});
+
+  group('Organizador ve quién se unió (Issue #8)', () {
+    testWidgets('muestra los nombres de quienes se unieron', (tester) async {
+      await tester.pumpWidget(
+        envolver(
+          TarjetaPartido(
+            partido: crearPartido(),
+            jugadoresUnidos: const ['Diego', 'Ana'],
+          ),
+        ),
+      );
+
+      expect(find.text('Se unieron (2): Diego, Ana'), findsOneWidget);
+    });
+
+    testWidgets('avisa cuando todavía no se unió nadie', (tester) async {
+      await tester.pumpWidget(
+        envolver(TarjetaPartido(partido: crearPartido(), jugadoresUnidos: const [])),
+      );
+
+      expect(
+        find.text('Todavía no se unió nadie desde Explorar.'),
+        findsOneWidget,
+      );
     });
   });
 }

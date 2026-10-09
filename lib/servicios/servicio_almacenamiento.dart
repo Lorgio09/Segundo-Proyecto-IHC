@@ -99,6 +99,7 @@ class ServicioAlmacenamiento {
           correo_organizador TEXT NOT NULL,
           partido_id         TEXT NOT NULL,
           correo_jugador     TEXT NOT NULL,
+          nombre_jugador     TEXT NOT NULL DEFAULT '',
           PRIMARY KEY (correo_organizador, partido_id, correo_jugador)
         )
       ''');
@@ -110,7 +111,7 @@ class ServicioAlmacenamiento {
           ruta_utils.join(await getDatabasesPath(), _nombreBaseDatos);
       return openDatabase(
         ruta,
-        version: 2,
+        version: 3,
         onCreate: (db, version) async {
           await db.execute('''
             CREATE TABLE $_tablaPartidos (
@@ -128,17 +129,48 @@ class ServicioAlmacenamiento {
               estoy_unido       INTEGER NOT NULL,
               estado            TEXT    NOT NULL,
               orden             INTEGER NOT NULL,
+              fecha_inicio      INTEGER,
               PRIMARY KEY (correo_usuario, id)
             )
           ''');
           await _crearTablaInscripciones(db);
         },
-        // Teléfonos que ya tenían la versión 1 solo reciben la tabla nueva
+        // Teléfonos con una versión anterior reciben solo lo que les falta
         onUpgrade: (db, anterior, nueva) async {
           if (anterior < 2) await _crearTablaInscripciones(db);
+          if (anterior == 2) {
+            await db.execute(
+              "ALTER TABLE $_tablaInscripciones "
+              "ADD COLUMN nombre_jugador TEXT NOT NULL DEFAULT ''",
+            );
+          }
+          if (anterior < 3) {
+            await db.execute(
+              'ALTER TABLE $_tablaPartidos ADD COLUMN fecha_inicio INTEGER',
+            );
+            await _completarFechasInicio(db);
+          }
         },
       );
     }();
+  }
+
+  /// Convierte a fecha real (columna fecha_inicio) el texto de fecha de los
+  /// partidos guardados antes de la versión 3 de la base de datos.
+  static Future<void> _completarFechasInicio(DatabaseExecutor db) async {
+    final filas = await db.query(
+      _tablaPartidos,
+      columns: ['correo_usuario', 'id', 'fecha_hora'],
+    );
+    for (final f in filas) {
+      final fecha = ModeloPartido.interpretarFechaHora(f['fecha_hora'] as String);
+      await db.update(
+        _tablaPartidos,
+        {'fecha_inicio': fecha?.millisecondsSinceEpoch},
+        where: 'correo_usuario = ? AND id = ?',
+        whereArgs: [f['correo_usuario'], f['id']],
+      );
+    }
   }
 
   Map<String, Object?> _aFila(String correo, ModeloPartido p, int orden) => {
@@ -156,6 +188,7 @@ class ServicioAlmacenamiento {
     'estoy_unido': p.estoyUnido ? 1 : 0,
     'estado': p.estado.name,
     'orden': orden,
+    'fecha_inicio': p.fechaInicio?.millisecondsSinceEpoch,
   };
 
   ModeloPartido _desdeFila(Map<String, Object?> f) => ModeloPartido(
@@ -327,11 +360,17 @@ class ServicioAlmacenamiento {
   /// transacción. Si se rechaza, lanza [StateError] con el motivo y no guarda nada.
   Future<ModeloPartido> unirseAPartido({
     required String correoJugador,
+    required String nombreJugador,
     required String correoOrganizador,
     required String partidoId,
   }) async {
     if (kIsWeb) {
-      return _unirsePrefs(correoJugador, correoOrganizador, partidoId);
+      return _unirsePrefs(
+        correoJugador,
+        nombreJugador,
+        correoOrganizador,
+        partidoId,
+      );
     }
 
     final bd = await _abrirBaseDatos();
@@ -368,9 +407,35 @@ class ServicioAlmacenamiento {
         'correo_organizador': correoOrganizador,
         'partido_id': partidoId,
         'correo_jugador': correoJugador,
+        'nombre_jugador': nombreJugador,
       });
       return unido;
     });
+  }
+
+  /// Quién se unió a cada partido de [correoOrganizador] (Issue #8).
+  /// Devuelve, por id de partido, los nombres en el orden en que se unieron.
+  Future<Map<String, List<String>>> obtenerJugadoresInscritos(
+    String correoOrganizador,
+  ) async {
+    if (kIsWeb) return _jugadoresInscritosPrefs(correoOrganizador);
+
+    final bd = await _abrirBaseDatos();
+    final filas = await bd.query(
+      _tablaInscripciones,
+      columns: ['partido_id', 'correo_jugador', 'nombre_jugador'],
+      where: 'correo_organizador = ?',
+      whereArgs: [correoOrganizador],
+      orderBy: 'rowid ASC',
+    );
+    final resultado = <String, List<String>>{};
+    for (final f in filas) {
+      final nombre = f['nombre_jugador'] as String;
+      resultado
+          .putIfAbsent(f['partido_id'] as String, () => [])
+          .add(nombre.isEmpty ? f['correo_jugador'] as String : nombre);
+    }
+    return resultado;
   }
 
   // ---------------------------------------------------------------------------
@@ -412,15 +477,37 @@ class ServicioAlmacenamiento {
     await prefs.remove(_clavePartidos(correo));
   }
 
-  Future<Set<String>> _inscripcionesPrefs(SharedPreferences prefs) async =>
-      (prefs.getStringList(_claveInscripciones) ?? const []).toSet();
+  /// Inscripciones guardadas en el navegador: [organizador, partido, jugador, nombre].
+  List<List<String>> _inscripcionesPrefs(SharedPreferences prefs) => [
+    for (final texto in prefs.getStringList(_claveInscripciones) ?? const [])
+      (jsonDecode(texto) as List).cast<String>(),
+  ];
 
-  String _claveInscripcion(String organizador, String id, String jugador) =>
-      jsonEncode([organizador, id, jugador]);
+  bool _estaInscritoPrefs(
+    List<List<String>> inscripciones,
+    String organizador,
+    String id,
+    String jugador,
+  ) => inscripciones.any(
+    (i) => i[0] == organizador && i[1] == id && i[2] == jugador,
+  );
+
+  Future<Map<String, List<String>>> _jugadoresInscritosPrefs(
+    String correoOrganizador,
+  ) async {
+    final prefs = await SharedPreferences.getInstance();
+    final resultado = <String, List<String>>{};
+    for (final i in _inscripcionesPrefs(prefs)) {
+      if (i[0] != correoOrganizador) continue;
+      final nombre = i.length > 3 && i[3].isNotEmpty ? i[3] : i[2];
+      resultado.putIfAbsent(i[1], () => []).add(nombre);
+    }
+    return resultado;
+  }
 
   Future<List<PartidoPublicado>> _explorarPrefs(String correoJugador) async {
     final prefs = await SharedPreferences.getInstance();
-    final inscripciones = await _inscripcionesPrefs(prefs);
+    final inscripciones = _inscripcionesPrefs(prefs);
     final resultado = <PartidoPublicado>[];
     final claves =
         prefs.getKeys().where((k) => k.startsWith(_prefijoPartidos)).toList()
@@ -435,8 +522,11 @@ class ServicioAlmacenamiento {
             p,
             correoOrganizador: organizador,
             correoJugador: correoJugador,
-            inscrito: inscripciones.contains(
-              _claveInscripcion(organizador, p.id, correoJugador),
+            inscrito: _estaInscritoPrefs(
+              inscripciones,
+              organizador,
+              p.id,
+              correoJugador,
             ),
           ),
         ));
@@ -447,12 +537,12 @@ class ServicioAlmacenamiento {
 
   Future<ModeloPartido> _unirsePrefs(
     String correoJugador,
+    String nombreJugador,
     String correoOrganizador,
     String partidoId,
   ) async {
     final prefs = await SharedPreferences.getInstance();
-    final inscripciones = await _inscripcionesPrefs(prefs);
-    final clave = _claveInscripcion(correoOrganizador, partidoId, correoJugador);
+    final inscripciones = _inscripcionesPrefs(prefs);
 
     final partidos = await _obtenerPartidosPrefs(correoOrganizador);
     final indice = partidos.indexWhere((p) => p.id == partidoId);
@@ -462,7 +552,12 @@ class ServicioAlmacenamiento {
       partidos[indice],
       correoOrganizador: correoOrganizador,
       correoJugador: correoJugador,
-      inscrito: inscripciones.contains(clave),
+      inscrito: _estaInscritoPrefs(
+        inscripciones,
+        correoOrganizador,
+        partidoId,
+        correoJugador,
+      ),
     ).unirse(); // lanza StateError con el motivo
 
     partidos[indice] = partidos[indice].copyWith(
@@ -470,10 +565,10 @@ class ServicioAlmacenamiento {
       estado: unido.estado,
     );
     await _guardarPartidosPrefs(correoOrganizador, partidos);
-    await prefs.setStringList(
-      _claveInscripciones,
-      (inscripciones..add(clave)).toList(),
-    );
+    await prefs.setStringList(_claveInscripciones, [
+      ...prefs.getStringList(_claveInscripciones) ?? const [],
+      jsonEncode([correoOrganizador, partidoId, correoJugador, nombreJugador]),
+    ]);
     return unido;
   }
 }

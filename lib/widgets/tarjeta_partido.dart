@@ -20,6 +20,10 @@ class TarjetaPartido extends StatelessWidget {
   /// (equipo completo), el botón se ve apagado y explica el motivo.
   final VoidCallback? onAgregarJugador;
 
+  /// Nombres de quienes se unieron desde Explorar. Si se entrega, el
+  /// organizador ve la lista en la tarjeta (Issue #8).
+  final List<String>? jugadoresUnidos;
+
   const TarjetaPartido({
     super.key,
     required this.partido,
@@ -28,6 +32,7 @@ class TarjetaPartido extends StatelessWidget {
     this.onEliminar,
     this.onUnirse,
     this.onAgregarJugador,
+    this.jugadoresUnidos,
   });
 
   @override
@@ -214,6 +219,11 @@ class TarjetaPartido extends StatelessWidget {
               ),
             ],
           ),
+          // QUIÉN SE UNIÓ (solo lo ve el organizador)
+          if (partido.soyOrganizador && jugadoresUnidos != null) ...[
+            const SizedBox(height: 12),
+            _construirJugadoresUnidos(jugadoresUnidos!),
+          ],
           // ACCIONES DEL ORGANIZADOR
           if (partido.soyOrganizador) ...[
             if (onAgregarJugador != null ||
@@ -344,6 +354,44 @@ class TarjetaPartido extends StatelessWidget {
               ),
             ],
           ],
+        ],
+      ),
+    );
+  }
+
+  Widget _construirJugadoresUnidos(List<String> nombres) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: TemaApp.superficieSuave,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(top: 1),
+            child: Icon(
+              LucideIcons.users,
+              size: 15,
+              color: TemaApp.textoSecundario,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              nombres.isEmpty
+                  ? 'Todavía no se unió nadie desde Explorar.'
+                  : 'Se unieron (${nombres.length}): ${nombres.join(', ')}',
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: TemaApp.textoPrincipal,
+                height: 1.35,
+              ),
+            ),
+          ),
         ],
       ),
     );
