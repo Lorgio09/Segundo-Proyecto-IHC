@@ -188,6 +188,43 @@ class ModeloPartido {
     return agregarJugador(marcarComoUnido: true);
   }
 
+  // ---------------------------------------------------------------------------
+  // REGLA DE EDICIÓN DE CUPOS
+  //   - Con el equipo completo no se pueden cambiar los cupos: subirlos sería
+  //     agregar jugadores, y "un equipo completo no permite agregar más".
+  //   - No se puede dejar menos cupos que jugadores ya inscritos.
+  //   - Si los cupos quedan iguales a los inscritos, el partido pasa solo a
+  //     "Equipo completo" (igual que al ocuparse el último cupo).
+  // ---------------------------------------------------------------------------
+
+  /// ¿Se pueden cambiar los cupos totales al editar?
+  bool get puedeCambiarCupos => estado == EstadoPartido.cuposAbiertos;
+
+  /// Motivo por el que no se pueden cambiar los cupos, o null si se puede.
+  String? get motivoBloqueoCambiarCupos => puedeCambiarCupos
+      ? null
+      : 'El equipo ya está completo: no se pueden cambiar los cupos.';
+
+  /// Edición de cupos: devuelve una copia con [nuevos] cupos totales y el
+  /// estado recalculado. Lanza [StateError] si la regla no lo permite.
+  ModeloPartido conCuposTotales(int nuevos) {
+    if (nuevos == cuposTotales) return this;
+    final motivo = motivoBloqueoCambiarCupos;
+    if (motivo != null) throw StateError(motivo);
+    if (nuevos < cuposOcupados) {
+      throw StateError(
+        'No puedes dejar menos cupos ($nuevos) que jugadores inscritos '
+        '($cuposOcupados).',
+      );
+    }
+    return copyWith(
+      cuposTotales: nuevos,
+      estado: nuevos <= cuposOcupados
+          ? EstadoPartido.equipoCompleto
+          : EstadoPartido.cuposAbiertos,
+    );
+  }
+
   /// Genera una copia inmutable con campos modificados para el flujo de edición.
   ModeloPartido copyWith({
     String? id,

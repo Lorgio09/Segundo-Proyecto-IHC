@@ -70,8 +70,13 @@ class _VistaCrearPartidoState extends State<VistaCrearPartido> {
       _ubicacionCtrl.text = p.ubicacion;
       _disciplina = p.disciplina;
       _cupos = p.cuposTotales;
-      _fecha = _hoy;
-      _hora = const TimeOfDay(hour: 19, minute: 0);
+      // Se conservan la fecha y la hora del partido (antes se reemplazaban
+      // por hoy a las 19:00 y el partido se movía sin avisar)
+      final inicio = p.fechaInicio;
+      if (inicio != null) {
+        _fecha = DateTime(inicio.year, inicio.month, inicio.day);
+        _hora = TimeOfDay(hour: inicio.hour, minute: inicio.minute);
+      }
     }
     // La vista previa se actualiza mientras se escribe
     _tituloCtrl.addListener(_refrescar);
@@ -111,11 +116,16 @@ class _VistaCrearPartidoState extends State<VistaCrearPartido> {
       a != null && a.year == b.year && a.month == b.month && a.day == b.day;
 
   Future<void> _elegirFecha() async {
+    final ultima = DateTime(_hoy.year + 1, 12, 31);
+    final actual = _fecha;
     final elegida = await showDatePicker(
       context: context,
-      initialDate: _fecha ?? _hoy,
+      initialDate:
+          actual == null || actual.isBefore(_hoy) || actual.isAfter(ultima)
+          ? _hoy
+          : actual,
       firstDate: _hoy,
-      lastDate: DateTime(_hoy.year + 1),
+      lastDate: ultima,
     );
     if (elegida != null) setState(() => _fecha = elegida);
   }
@@ -137,16 +147,20 @@ class _VistaCrearPartidoState extends State<VistaCrearPartido> {
       return;
     }
 
-    final partido = _esEdicion
-        ? widget.partidoAEditar!.copyWith(
-            titulo: _tituloCtrl.text.trim(),
-            disciplina: _disciplina,
-            icono: _disciplina,
-            ubicacion: _ubicacionCtrl.text.trim(),
-            fechaHora: '$_textoFecha · $_textoHora',
-            cuposTotales: _cupos,
-          )
-        : ModeloPartido(
+    final ModeloPartido partido;
+    try {
+      partido = _esEdicion
+          // La regla de cupos recalcula el estado (ver conCuposTotales)
+          ? widget.partidoAEditar!
+                .conCuposTotales(_cupos)
+                .copyWith(
+                  titulo: _tituloCtrl.text.trim(),
+                  disciplina: _disciplina,
+                  icono: _disciplina,
+                  ubicacion: _ubicacionCtrl.text.trim(),
+                  fechaHora: '$_textoFecha · $_textoHora',
+                )
+          : ModeloPartido(
             id: 'p-${DateTime.now().millisecondsSinceEpoch}',
             titulo: _tituloCtrl.text.trim(),
             disciplina: _disciplina,
@@ -159,6 +173,16 @@ class _VistaCrearPartidoState extends State<VistaCrearPartido> {
             soyOrganizador: true,
             estoyUnido: true,
           );
+    } on StateError catch (e) {
+      _claveSacudida.currentState?.sacudir();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.message),
+          backgroundColor: TemaApp.rojoAlerta,
+        ),
+      );
+      return;
+    }
 
     Navigator.pop(context, partido);
   }
@@ -362,7 +386,15 @@ class _VistaCrearPartidoState extends State<VistaCrearPartido> {
   }
 
   // Selector de cupos con +/- y una fila de círculos (el primero eres tú)
+  // Jugadores ya inscritos: al crear, solo el organizador
+  int get _ocupados => _esEdicion ? widget.partidoAEditar!.cuposOcupados : 1;
+
+  // Motivo por el que no se pueden cambiar los cupos (equipo completo)
+  String? get _motivoCuposBloqueados =>
+      _esEdicion ? widget.partidoAEditar!.motivoBloqueoCambiarCupos : null;
+
   Widget _selectorCupos() {
+    final bloqueado = _motivoCuposBloqueados != null;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: TemaApp.tarjeta(radio: 16),
@@ -373,7 +405,9 @@ class _VistaCrearPartidoState extends State<VistaCrearPartido> {
             children: [
               _botonCupo(
                 LucideIcons.minus,
-                _cupos > _cuposMinimo ? () => setState(() => _cupos--) : null,
+                !bloqueado && _cupos > _cuposMinimo
+                    ? () => setState(() => _cupos--)
+                    : null,
               ),
               SizedBox(
                 width: 110,
@@ -401,7 +435,9 @@ class _VistaCrearPartidoState extends State<VistaCrearPartido> {
               ),
               _botonCupo(
                 LucideIcons.plus,
-                _cupos < _cuposMax ? () => setState(() => _cupos++) : null,
+                !bloqueado && _cupos < _cuposMax
+                    ? () => setState(() => _cupos++)
+                    : null,
               ),
             ],
           ),
@@ -411,7 +447,7 @@ class _VistaCrearPartidoState extends State<VistaCrearPartido> {
             spacing: 6,
             runSpacing: 6,
             children: List.generate(_cupos, (i) {
-              final eresTu = i == 0;
+              final eresTu = i < _ocupados;
               return AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
                 width: 16,
@@ -431,12 +467,36 @@ class _VistaCrearPartidoState extends State<VistaCrearPartido> {
           ),
           const SizedBox(height: 10),
           Text(
-            'Tú ocupas 1 cupo · faltan ${_cupos - 1} por completar',
+            _esEdicion
+                ? 'Ya hay $_ocupados inscritos · faltan '
+                      '${(_cupos - _ocupados).clamp(0, _cuposMax)} por completar'
+                : 'Tú ocupas 1 cupo · faltan ${_cupos - 1} por completar',
+            textAlign: TextAlign.center,
             style: const TextStyle(
               fontSize: 12,
               color: TemaApp.textoSecundario,
             ),
           ),
+          if (bloqueado) ...[
+            const SizedBox(height: 10),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(LucideIcons.lock, size: 15, color: TemaApp.rojoAlerta),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    _motivoCuposBloqueados!,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: TemaApp.rojoAlerta,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );
