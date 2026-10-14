@@ -6,6 +6,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../tema/iconos_deporte.dart';
 import '../tema/tema_app.dart';
+import 'vista_explorar_partidos.dart';
 import 'vista_login.dart';
 import 'vista_registro.dart';
 import 'vista_mis_partidos.dart';
@@ -23,29 +24,29 @@ class VistaInicioPublico extends StatefulWidget {
 class _VistaInicioPublicoState extends State<VistaInicioPublico> {
   final int _indiceNavegacion = 0;
 
+  // Pestañas: 0 Inicio · 1 Explorar · 2 Mis partidos.
+  // "Explorar" está en la navegación principal (Clase 15, hallazgo #1 · H6):
+  // encontrar partidos de otros no debe depender de recordar dónde está.
   void _alSeleccionarPestana(int indice) {
-    if (indice == 1) {
-      // Intento de acceder a Mis Partidos (Ruta Privada)
-      if (widget.servicioAuth.estaAutenticado) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => VistaMisPartidos(servicioAuth: widget.servicioAuth),
-          ),
-        );
-      } else {
-        // Redirección natural al login por falta de sesión
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => VistaLogin(
-              servicioAuth: widget.servicioAuth,
-              mensajeRedireccion: 'Inicia sesión para ver tus partidos.',
-            ),
-          ),
-        );
-      }
-    }
+    if (indice == 0) return;
+    final destino = indice == 1
+        ? VistaExplorarPartidos(servicioAuth: widget.servicioAuth)
+        : VistaMisPartidos(servicioAuth: widget.servicioAuth);
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => widget.servicioAuth.estaAutenticado
+            ? destino
+            // Ruta privada: sin sesión se redirige al login explicando el motivo
+            : VistaLogin(
+                servicioAuth: widget.servicioAuth,
+                mensajeRedireccion: indice == 1
+                    ? 'Inicia sesión para explorar partidos.'
+                    : 'Inicia sesión para ver tus partidos.',
+              ),
+      ),
+    );
   }
 
   @override
@@ -150,6 +151,10 @@ class _VistaInicioPublicoState extends State<VistaInicioPublico> {
         onDestinationSelected: _alSeleccionarPestana,
         destinations: const [
           NavigationDestination(icon: Icon(LucideIcons.house), label: 'Inicio'),
+          NavigationDestination(
+            icon: Icon(LucideIcons.compass),
+            label: 'Explorar',
+          ),
           NavigationDestination(
             icon: Icon(LucideIcons.calendarDays),
             label: 'Mis partidos',

@@ -22,6 +22,16 @@
 - Código: la pestaña abre *Explorar partidos*; sin sesión, redirige al login con el mensaje "Inicia sesión para explorar partidos".
 - Prueba: desde la portada, tocar "Explorar" lleva a la lista de partidos de otros estudiantes.
 
+| Antes | Después |
+| :-: | :-: |
+| <img src="capturas/hallazgo-1-mis-partidos.png" width="200" alt="Antes: Explorar solo dentro de Mis partidos"> | <img src="capturas/hallazgo-1-despues.png" width="200" alt="Después: pestaña Explorar en la barra inferior"> |
+| "Explorar" solo como botón dentro de *Mis partidos* y un ícono arriba. | Pestaña **Explorar** en la barra inferior, siempre visible. |
+
+**Estado: implementada.**
+- Portada: barra inferior `Inicio | Explorar | Mis partidos` ([`vista_inicio_publico.dart`](../lib/vistas/vista_inicio_publico.dart), función `_alSeleccionarPestana`).
+- *Mis partidos*: nueva barra inferior `Explorar | Mis partidos`, en el mismo orden que la portada (H4 Consistencia). Se quitó el ícono de brújula de la barra superior para no repetir la misma acción tres veces (H8 Minimalismo).
+- Pruebas: `flutter test test/navegacion_explorar_test.dart` (la pestaña es visible, lleva a Explorar con sesión, redirige al login sin sesión y aparece también en *Mis partidos*).
+
 ---
 
 *Severidad (Nielsen): 0 no es problema · 1 cosmético · 2 menor · 3 mayor · 4 catastrófico.*
