@@ -3,7 +3,6 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../modelos/filtro_partidos.dart';
 import '../modelos/modelo_partido.dart';
-import '../servicios/servicio_almacenamiento.dart';
 import '../servicios/servicio_autenticacion.dart';
 import '../tema/tema_app.dart';
 import '../widgets/panel_filtros.dart';
@@ -21,8 +20,7 @@ class VistaExplorarPartidos extends StatefulWidget {
 }
 
 class _VistaExplorarPartidosState extends State<VistaExplorarPartidos> {
-  final ServicioAlmacenamiento _almacenamiento = ServicioAlmacenamiento();
-  List<PartidoPublicado> _partidos = [];
+  List<ModeloPartido> _partidos = [];
   List<String> _lugares = FiltroPartidos.lugaresSugeridos;
   FiltroPartidos _filtro = const FiltroPartidos();
   bool _cargando = true;
@@ -37,17 +35,23 @@ class _VistaExplorarPartidosState extends State<VistaExplorarPartidos> {
   }
 
   // Interfaz -> consulta -> base de datos: cada cambio de filtro vuelve a
-  // pedir los partidos a SQLite con buscarPartidos.
+  // pedir los partidos a la base de datos de Supabase con buscarPartidos.
   Future<void> _cargar() async {
     final usuario = widget.servicioAuth.usuarioActual;
     if (usuario == null) return;
 
     final numero = ++_consulta;
-    final partidos = await _almacenamiento.buscarPartidos(
-      usuario.correo,
-      _filtro,
-    );
-    final lugares = await _almacenamiento.obtenerLugares(usuario.correo);
+    final List<ModeloPartido> partidos;
+    final List<String> lugares;
+    try {
+      partidos = await widget.servicioAuth.partidos.buscarPartidos(_filtro);
+      lugares = await widget.servicioAuth.partidos.obtenerLugares();
+    } on StateError catch (e) {
+      if (!mounted || numero != _consulta) return;
+      setState(() => _cargando = false);
+      _avisar(e.message, error: true);
+      return;
+    }
     if (!mounted || numero != _consulta) return;
     setState(() {
       _partidos = partidos;
@@ -71,32 +75,23 @@ class _VistaExplorarPartidosState extends State<VistaExplorarPartidos> {
   }
 
   // ACCIÓN "UNIRME AL EQUIPO": la regla del modelo decide; si rechaza, se explica el motivo
-  Future<void> _unirse(PartidoPublicado item) async {
-    final usuario = widget.servicioAuth.usuarioActual;
-    if (usuario == null) return;
-
-    final motivo = item.partido.motivoRechazoUnirse;
+  Future<void> _unirse(ModeloPartido partido) async {
+    final motivo = partido.motivoRechazoUnirse;
     if (motivo != null) {
       _avisar('No puedes unirte. $motivo', error: true);
       return;
     }
 
     try {
-      final unido = await _almacenamiento.unirseAPartido(
-        correoJugador: usuario.correo,
-        nombreJugador: usuario.nombre,
-        correoOrganizador: item.correoOrganizador,
-        partidoId: item.partido.id,
+      // El servidor vuelve a aplicar la regla sobre el dato guardado
+      final unido = await widget.servicioAuth.partidos.unirseAPartido(
+        partido.id,
       );
       if (!mounted) return;
 
       setState(() {
         _partidos = [
-          for (final p in _partidos)
-            p.correoOrganizador == item.correoOrganizador &&
-                    p.partido.id == item.partido.id
-                ? (correoOrganizador: p.correoOrganizador, partido: unido)
-                : p,
+          for (final p in _partidos) p.id == partido.id ? unido : p,
         ];
       });
 
@@ -169,9 +164,9 @@ class _VistaExplorarPartidosState extends State<VistaExplorarPartidos> {
                     ),
                   ),
                   ..._partidos.map(
-                    (item) => TarjetaPartido(
-                      partido: item.partido,
-                      onUnirse: () => _unirse(item),
+                    (partido) => TarjetaPartido(
+                      partido: partido,
+                      onUnirse: () => _unirse(partido),
                     ),
                   ),
                 ],

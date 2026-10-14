@@ -1,88 +1,143 @@
 import 'package:flutter/foundation.dart';
-import '../modelos/modelo_usuario.dart';
-import 'servicio_almacenamiento.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
-/// Servicio central de autenticación con datos semilla y persistencia
-class ServicioAutenticacion extends ChangeNotifier {
-  final ServicioAlmacenamiento _almacenamiento = ServicioAlmacenamiento();
+import '../modelos/modelo_usuario.dart';
+import 'repositorio_partidos.dart';
+import 'repositorio_supabase.dart';
+
+/// Sesión del estudiante y acceso a los datos.
+///
+/// Las pantallas solo conocen esta clase: la implementación real usa Supabase
+/// (cuentas y base de datos compartidas entre dispositivos); las pruebas usan
+/// una versión en memoria.
+abstract class ServicioAutenticacion extends ChangeNotifier {
+  ModeloUsuario? get usuarioActual;
+  bool get estaAutenticado => usuarioActual != null;
+  bool get estaCargando;
+
+  /// Partidos e inscripciones del usuario con sesión.
+  RepositorioPartidos get partidos;
+
+  /// Recupera la sesión guardada (si el usuario no la cerró).
+  Future<void> inicializar();
+
+  /// Devuelve null si inició sesión, o el mensaje de error.
+  Future<String?> iniciarSesion(String correo, String contrasena);
+
+  /// Devuelve null si se registró e inició sesión, o el mensaje de error.
+  Future<String?> registrarUsuario({
+    required String nombre,
+    required String correo,
+    required String contrasena,
+    required String carrera,
+    required String deporteFavorito,
+  });
+
+  /// Devuelve null si se envió el correo de recuperación, o el error.
+  Future<String?> recuperarContrasena(String correo);
+
+  Future<void> cerrarSesion();
+}
+
+/// Autenticación con Supabase Auth: las cuentas viven en el servidor y las
+/// contraseñas se guardan cifradas. La sesión la conserva supabase_flutter
+/// en el dispositivo, así la app abre directamente en "Mis partidos".
+class ServicioAutenticacionSupabase extends ServicioAutenticacion {
+  final SupabaseClient _cliente;
+  late final RepositorioPartidos _partidos = RepositorioSupabase(_cliente);
 
   ModeloUsuario? _usuarioActual;
   bool _estaCargando = true;
 
+  ServicioAutenticacionSupabase(this._cliente);
+
+  @override
   ModeloUsuario? get usuarioActual => _usuarioActual;
-  bool get estaAutenticado => _usuarioActual != null;
+
+  @override
   bool get estaCargando => _estaCargando;
 
-  // Cuentas semilla iniciales para pruebas del docente
-  static final List<ModeloUsuario> _usuariosSemilla = [
-    ModeloUsuario(
-      id: 'usr-001',
-      nombre: 'Diego Astete Paz',
-      correo: 'diego@unisport.edu',
-      contrasena: '123456',
-      carrera: 'Ingeniería en Sistemas',
-      deporteFavorito: 'Futsal',
-    ),
-    ModeloUsuario(
-      id: 'usr-002',
-      nombre: 'Lorgio Leonardo Choque Severiche',
-      correo: 'lorgio@unisport.edu',
-      contrasena: '123456',
-      carrera: 'Ingeniería en Sistemas',
-      deporteFavorito: 'Básquetbol',
-    ),
-  ];
+  @override
+  RepositorioPartidos get partidos => _partidos;
 
-  List<ModeloUsuario> _usuarios = [];
+  /// Lee el perfil del usuario con sesión desde la tabla `perfiles`.
+  /// Si no se puede leer (por ejemplo, sin internet), usa los datos de la cuenta.
+  Future<ModeloUsuario> _cargarPerfil(User usuario) async {
+    try {
+      final fila = await _cliente
+          .from('perfiles')
+          .select()
+          .eq('id', usuario.id)
+          .maybeSingle();
+      if (fila != null) return ModeloUsuario.desdePerfil(fila);
+    } catch (e) {
+      debugPrint('No se pudo leer el perfil: $e');
+    }
+    final datos = usuario.userMetadata ?? const {};
+    return ModeloUsuario(
+      id: usuario.id,
+      nombre: datos['nombre'] as String? ?? usuario.email ?? 'Estudiante',
+      correo: usuario.email ?? '',
+      carrera: datos['carrera'] as String? ?? 'Ingeniería',
+      deporteFavorito: datos['deporte_favorito'] as String? ?? 'Futsal',
+    );
+  }
 
-  // Inicializar servicio y verificar si existía sesión previa
+  @override
   Future<void> inicializar() async {
     _estaCargando = true;
     notifyListeners();
 
-    // Cargar usuarios guardados o inicializar con semillas
-    final guardados = await _almacenamiento.obtenerUsuarios();
-    if (guardados.isEmpty) {
-      _usuarios = List.from(_usuariosSemilla);
-      await _almacenamiento.guardarUsuarios(_usuarios);
-    } else {
-      _usuarios = guardados;
-      // Asegurar que las semillas siempre estén presentes
-      for (final semilla in _usuariosSemilla) {
-        if (!_usuarios.any((u) => u.correo.toLowerCase() == semilla.correo.toLowerCase())) {
-          _usuarios.add(semilla);
-        }
-      }
-      await _almacenamiento.guardarUsuarios(_usuarios);
-    }
+    final usuario = _cliente.auth.currentUser;
+    _usuarioActual = usuario == null ? null : await _cargarPerfil(usuario);
 
-    // Verificar si hay sesión previa guardada
-    _usuarioActual = await _almacenamiento.obtenerSesion();
     _estaCargando = false;
     notifyListeners();
   }
 
-  // Iniciar sesión
-  Future<String?> iniciarSesion(String correo, String contrasena) async {
-    final correoLimpio = correo.trim().toLowerCase();
-    final passLimpia = contrasena.trim();
-
-    final encontrado = _usuarios.firstWhere(
-      (u) => u.correo.toLowerCase() == correoLimpio && u.contrasena == passLimpia,
-      orElse: () => ModeloUsuario(id: '', nombre: '', correo: '', contrasena: ''),
-    );
-
-    if (encontrado.id.isEmpty) {
-      return 'Correo o contraseña incorrectos. Verifica tus credenciales.';
+  /// Traduce los errores de Supabase Auth a mensajes para el estudiante.
+  String _mensajeDe(Object error) {
+    if (error is AuthException) {
+      final mensaje = error.message.toLowerCase();
+      if (mensaje.contains('invalid login credentials')) {
+        return 'Correo o contraseña incorrectos. Verifica tus credenciales.';
+      }
+      if (mensaje.contains('already registered') ||
+          mensaje.contains('already been registered')) {
+        return 'Este correo ya se encuentra registrado.';
+      }
+      if (mensaje.contains('password')) {
+        return 'La contraseña debe tener al menos 6 caracteres.';
+      }
+      if (mensaje.contains('email not confirmed')) {
+        return 'Debes confirmar tu correo antes de iniciar sesión.';
+      }
+      return error.message;
     }
-
-    _usuarioActual = encontrado;
-    await _almacenamiento.guardarSesion(encontrado);
-    notifyListeners();
-    return null; // Sin errores = éxito
+    debugPrint('Error de autenticación: $error');
+    return RepositorioSupabase.mensajeSinConexion;
   }
 
-  // Registrar un nuevo estudiante
+  @override
+  Future<String?> iniciarSesion(String correo, String contrasena) async {
+    try {
+      final respuesta = await _cliente.auth.signInWithPassword(
+        email: correo.trim().toLowerCase(),
+        password: contrasena.trim(),
+      );
+      final usuario = respuesta.user;
+      if (usuario == null) {
+        return 'Correo o contraseña incorrectos. Verifica tus credenciales.';
+      }
+      _usuarioActual = await _cargarPerfil(usuario);
+      notifyListeners();
+      return null;
+    } catch (e) {
+      return _mensajeDe(e);
+    }
+  }
+
+  @override
   Future<String?> registrarUsuario({
     required String nombre,
     required String correo,
@@ -90,48 +145,49 @@ class ServicioAutenticacion extends ChangeNotifier {
     required String carrera,
     required String deporteFavorito,
   }) async {
-    final correoLimpio = correo.trim().toLowerCase();
-    
-    if (_usuarios.any((u) => u.correo.toLowerCase() == correoLimpio)) {
-      return 'Este correo ya se encuentra registrado.';
+    try {
+      // El trigger de la base crea el perfil con estos datos
+      final respuesta = await _cliente.auth.signUp(
+        email: correo.trim().toLowerCase(),
+        password: contrasena.trim(),
+        data: {
+          'nombre': nombre.trim(),
+          'carrera': carrera.trim().isEmpty ? 'Ingeniería' : carrera.trim(),
+          'deporte_favorito': deporteFavorito,
+        },
+      );
+      final usuario = respuesta.user;
+      if (usuario == null || respuesta.session == null) {
+        // El proyecto exige confirmar el correo antes de entrar
+        return 'Te enviamos un correo para confirmar la cuenta. '
+            'Confírmala y luego inicia sesión.';
+      }
+      _usuarioActual = await _cargarPerfil(usuario);
+      notifyListeners();
+      return null;
+    } catch (e) {
+      return _mensajeDe(e);
     }
-
-    final nuevoUsuario = ModeloUsuario(
-      id: 'usr-${DateTime.now().millisecondsSinceEpoch}',
-      nombre: nombre.trim(),
-      correo: correoLimpio,
-      contrasena: contrasena.trim(),
-      carrera: carrera.trim().isEmpty ? 'Ingeniería' : carrera.trim(),
-      deporteFavorito: deporteFavorito,
-    );
-
-    _usuarios.add(nuevoUsuario);
-    await _almacenamiento.guardarUsuarios(_usuarios);
-
-    // Iniciar sesión automáticamente tras el registro
-    _usuarioActual = nuevoUsuario;
-    await _almacenamiento.guardarSesion(nuevoUsuario);
-    notifyListeners();
-    return null;
   }
 
-  // Recuperar contraseña (simulado)
+  @override
   Future<String?> recuperarContrasena(String correo) async {
-    final correoLimpio = correo.trim().toLowerCase();
-    final existe = _usuarios.any((u) => u.correo.toLowerCase() == correoLimpio);
-
-    if (!existe) {
-      return 'No encontramos ninguna cuenta con ese correo.';
+    try {
+      await _cliente.auth.resetPasswordForEmail(correo.trim().toLowerCase());
+      return null;
+    } catch (e) {
+      return _mensajeDe(e);
     }
-
-    // En un sistema real se envía correo. Aquí se simula exitosamente.
-    return null;
   }
 
-  // Cerrar sesión
+  @override
   Future<void> cerrarSesion() async {
+    try {
+      await _cliente.auth.signOut();
+    } catch (e) {
+      debugPrint('Error al cerrar sesión: $e');
+    }
     _usuarioActual = null;
-    await _almacenamiento.borrarSesion();
     notifyListeners();
   }
 }

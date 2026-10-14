@@ -155,7 +155,7 @@ class _VistaRecuperarClaveState extends State<VistaRecuperarClave> {
               Text('¡Solicitud procesada!', style: TemaApp.titulo(tamano: 20)),
               const SizedBox(height: 8),
               Text(
-                'Se enviaron las instrucciones a ${_controladorCorreo.text}',
+                'Enviamos las instrucciones a ${_controladorCorreo.text}',
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   fontSize: 14,
@@ -166,7 +166,7 @@ class _VistaRecuperarClaveState extends State<VistaRecuperarClave> {
               const SizedBox(height: 16),
               const CajaMensaje(
                 tipo: TipoMensaje.info,
-                texto: 'Simulación IHC: en producción este flujo se conecta al servicio SMTP. Para pruebas académicas se valida la existencia del usuario.',
+                texto: 'Si el correo está registrado, Supabase envía un enlace para crear una nueva contraseña. Revisa también la carpeta de spam.',
               ),
             ],
           ),

@@ -10,12 +10,12 @@
 * **Ubicación:** Botón de edición (ícono de lápiz) en la tarjeta del partido para el organizador.
 * **Comportamiento:** Abre el formulario pre-cargado con los datos del partido (`VistaCrearPartido`), permitiendo modificar título, deporte, ubicación, fecha/hora y cupos totales.
 * **Consistencia:** No permite reducir los cupos totales por debajo de los jugadores que ya están inscritos.
-* **Persistencia:** Al guardar los cambios, se actualiza en memoria y se persiste automáticamente en la base de datos SQLite.
+* **Persistencia:** Al guardar los cambios, se actualiza en memoria y se guarda en la base de datos compartida (Supabase).
 
 ### B. Eliminar el partido solicitando confirmación
 * **Ubicación:** Botón de eliminar (ícono de papelera) en la tarjeta del partido para el organizador.
 * **Comportamiento:** Abre un cuadro de diálogo modal (`AlertDialog`) solicitando confirmación explícita (*"¿Estás seguro de que deseas eliminar [Título]? Esta acción no se puede deshacer"*).
-* **Persistencia:** Si se confirma, el partido se remueve de la lista del usuario y se elimina de la base de datos SQLite.
+* **Persistencia:** Si se confirma, el partido se remueve de la lista del usuario y se elimina de la base de datos compartida (Supabase).
 
 ### C. Restricción según su estado: "Un equipo completo no permite agregar más jugadores"
 * **Regla de negocio:** Un partido en estado `Equipo completo` (o con todos sus cupos ocupados) bloquea la incorporación de nuevos jugadores.
@@ -30,14 +30,13 @@
   Si se toca el botón apagado, además aparece un mensaje con el mismo motivo.
 * **Arquitectura:** La restricción está protegida en [`lib/modelos/modelo_partido.dart`](../lib/modelos/modelo_partido.dart) mediante el método inmutable `agregarJugador()`, que lanza un `StateError` descriptivo si se intenta violar la regla fuera de la interfaz.
 
-### D. Base de datos SQLite
-* **Tecnología:** `sqflite` (SQLite), la base de datos nativa de Android e iOS. El archivo se llama `unisport.db`.
-* **Tabla `partidos`:** una fila por partido con sus datos (título, disciplina, ubicación, fecha y hora, cupos totales y ocupados, estado, organizador, etc.). La clave primaria es `(correo_usuario, id)`, por lo que cada estudiante solo ve sus propios partidos.
-* **Operaciones:** crear, editar, eliminar y cambiar de estado se guardan en una transacción de SQLite; al reabrir la app se leen de la base de datos.
-* **Migración:** si un usuario tenía partidos guardados con la versión anterior (`SharedPreferences`), se pasan automáticamente a SQLite la primera vez que abre *Mis partidos*.
-* **Nota sobre web:** `sqflite` no existe en el navegador, así que al ejecutar en Chrome se usa `SharedPreferences` como respaldo para poder desarrollar. La entrega y la demostración están pensadas para **móvil** (Android / iOS).
-* **Sesión y usuarios registrados** siguen en `SharedPreferences`; la información de los partidos (el elemento de la tarea) está en la base de datos.
-* **Código:** [`lib/servicios/servicio_almacenamiento.dart`](../lib/servicios/servicio_almacenamiento.dart)
+### D. Base de datos compartida (Supabase)
+* **Tecnología:** Supabase (PostgreSQL en la nube). Todos los dispositivos usan la misma base: lo que se crea, edita o elimina en un teléfono se ve en los demás.
+* **Tablas:** `perfiles`, `partidos` e `inscripciones`; las cuentas y contraseñas (cifradas) las maneja Supabase Auth.
+* **Reglas en el servidor:** completar equipo, agregar jugador, editar y unirse se ejecutan como funciones SQL que validan las mismas reglas del modelo y bloquean la fila del partido, así dos teléfonos no pueden romperlas al mismo tiempo.
+* **Seguridad (RLS):** solo el organizador puede crear como suyo, editar o eliminar su partido.
+* **Código:** [`lib/servicios/repositorio_supabase.dart`](../lib/servicios/repositorio_supabase.dart) y [`supabase/esquema.sql`](../supabase/esquema.sql).
+* **Guía de configuración y verificación:** [`docs/base-de-datos-supabase.md`](base-de-datos-supabase.md).
 
 ---
 
@@ -51,10 +50,16 @@ Archivo: [`test/restriccion_partido_test.dart`](../test/restriccion_partido_test
 flutter test test/restriccion_partido_test.dart
 ```
 
-Pruebas de la base de datos SQLite (crear, editar, eliminar, aislamiento por usuario y migración):
+Pruebas de la edición (regla de cupos y fecha conservada):
 
 ```bash
-flutter test test/almacenamiento_sqlite_test.dart
+flutter test test/edicion_partido_test.dart
+```
+
+Prueba contra la base de datos real de Supabase (dos dispositivos):
+
+```bash
+flutter test test/supabase_integracion_test.dart --dart-define=PRUEBAS_SUPABASE=true
 ```
 
 Pruebas de interfaz de la restricción (botón y mensaje de bloqueo):
@@ -63,7 +68,7 @@ Pruebas de interfaz de la restricción (botón y mensaje de bloqueo):
 flutter test test/tarjeta_partido_test.dart
 ```
 
-Para correr todas las pruebas del proyecto (21 pruebas aprobadas):
+Para correr todas las pruebas del proyecto:
 
 ```bash
 flutter test
@@ -87,8 +92,9 @@ flutter test
 | `lib/vistas/vista_crear_partido.dart` | Soporte para modo edición (`partidoAEditar`) y validación de cupos mínimos |
 | `lib/vistas/vista_mis_partidos.dart` | Flujos de edición, diálogo modal de confirmación de eliminación y acción de unirse |
 | `lib/widgets/tarjeta_partido.dart` | Botones de edición/eliminación para organizador y feedback visual del bloqueo |
-| `lib/servicios/servicio_almacenamiento.dart` | Base de datos SQLite (tabla `partidos`), transacciones y migración desde SharedPreferences |
-| `test/almacenamiento_sqlite_test.dart` | 5 pruebas de la base de datos: guardar, editar, eliminar, aislamiento por usuario y migración |
+| `lib/servicios/repositorio_supabase.dart` | Operaciones sobre la base de datos compartida (Supabase) |
+| `supabase/esquema.sql` | Tablas, seguridad (RLS) y reglas de negocio en el servidor |
+| `test/edicion_partido_test.dart` | Regla de cupos al editar y fecha conservada |
 | `test/tarjeta_partido_test.dart` | 2 pruebas de interfaz: botón "Agregar jugador" con cupos abiertos y aviso del motivo cuando el equipo está completo |
 | `test/restriccion_partido_test.dart` | 5 pruebas unitarias automatizadas para la restricción de UniSport |
 | `docs/task-03-lifecycle-restriction.md` | Este documento de respaldo |

@@ -1,8 +1,11 @@
+/// Datos públicos de un estudiante (tabla `perfiles` en Supabase).
+///
+/// La contraseña no forma parte del modelo: la guarda Supabase Auth, cifrada,
+/// y la app nunca la almacena.
 class ModeloUsuario {
   final String id;
   final String nombre;
   final String correo;
-  final String contrasena;
   final String carrera;
   final String deporteFavorito;
 
@@ -10,30 +13,18 @@ class ModeloUsuario {
     required this.id,
     required this.nombre,
     required this.correo,
-    required this.contrasena,
     this.carrera = 'Ingeniería',
     this.deporteFavorito = 'Futsal',
   });
 
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'nombre': nombre,
-      'correo': correo,
-      'contrasena': contrasena,
-      'carrera': carrera,
-      'deporteFavorito': deporteFavorito,
-    };
-  }
-
-  factory ModeloUsuario.fromJson(Map<String, dynamic> json) {
+  /// Construye el usuario a partir de una fila de la tabla `perfiles`.
+  factory ModeloUsuario.desdePerfil(Map<String, dynamic> fila) {
     return ModeloUsuario(
-      id: json['id'] as String,
-      nombre: json['nombre'] as String,
-      correo: json['correo'] as String,
-      contrasena: json['contrasena'] as String,
-      carrera: json['carrera'] as String? ?? 'Ingeniería',
-      deporteFavorito: json['deporteFavorito'] as String? ?? 'Futsal',
+      id: fila['id'] as String,
+      nombre: fila['nombre'] as String,
+      correo: fila['correo'] as String,
+      carrera: fila['carrera'] as String? ?? 'Ingeniería',
+      deporteFavorito: fila['deporte_favorito'] as String? ?? 'Futsal',
     );
   }
 }

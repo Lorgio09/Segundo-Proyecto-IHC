@@ -1,21 +1,26 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:unisport/modelos/filtro_partidos.dart';
 import 'package:unisport/modelos/modelo_partido.dart';
-import 'package:unisport/servicios/servicio_almacenamiento.dart';
+
+import 'apoyo/repositorio_en_memoria.dart';
 
 /// Pruebas de búsqueda y filtrado de partidos (Issues #9 y #11, requisito #6).
-/// La consulta se resuelve en SQLite con datos guardados, no con datos de ejemplo.
+///
+/// - Los resultados se prueban sobre un repositorio en memoria con los mismos
+///   datos de varios usuarios y la misma regla que la app.
+/// - El grupo "Consulta enviada a la base de datos" verifica las condiciones
+///   exactas que RepositorioSupabase aplica en la consulta a PostgreSQL.
 ///
 /// Ejecutar con:  flutter test test/filtro_partidos_test.dart
-const lorgio = 'lorgio@unisport.edu';
-const ana = 'ana@unisport.edu';
-const diego = 'diego@unisport.edu';
+const lorgio = 'u-lorgio';
+const ana = 'u-ana';
+const diego = 'u-diego';
 
 /// "Ahora" fijo para que las pruebas no dependan del día en que se ejecutan:
 /// miércoles 15 de mayo de 2030 a mediodía.
 final ahora = DateTime(2030, 5, 15, 12);
+
+late RepositorioEnMemoria repositorio;
 
 ModeloPartido partido(
   String id,
@@ -37,56 +42,56 @@ ModeloPartido partido(
     cuposTotales: total,
     cuposOcupados: ocupados,
     organizadorNombre: 'Organizador',
-    soyOrganizador: true,
-    estoyUnido: true,
     estado: estado,
   );
 }
 
 Future<List<String>> buscar(FiltroPartidos filtro) async {
-  final resultado = await ServicioAlmacenamiento().buscarPartidos(
-    diego,
-    filtro,
-    ahora: ahora,
-  );
-  return [for (final item in resultado) item.partido.id];
+  final resultado = await repositorio.buscarPartidos(filtro, ahora: ahora);
+  return [for (final p in resultado) p.id];
 }
 
 void main() {
-  setUpAll(() {
-    sqfliteFfiInit();
-    databaseFactory = databaseFactoryFfi;
-  });
+  setUp(() {
+    // Diego es quien busca
+    repositorio = RepositorioEnMemoria(usuarioId: diego, usuarioNombre: 'Diego');
 
-  setUp(() async {
-    SharedPreferences.setMockInitialValues({});
-    await ServicioAlmacenamiento.reiniciarBaseDatos(ruta: inMemoryDatabasePath);
-    final bd = ServicioAlmacenamiento();
-
-    await bd.guardarPartidos(lorgio, [
-      // hoy, con cupos
+    // hoy, con cupos
+    repositorio.sembrar(
+      lorgio,
       partido('hoy', 'Futsal nocturno', 'Futsal', 'Cancha Campus',
           '15/05/2030 · 19:00', ocupados: 3),
-      // dentro de 7 días, equipo completo
+    );
+    // dentro de 7 días, equipo completo
+    repositorio.sembrar(
+      lorgio,
       partido('completo', 'Básquet 3x3', 'Básquetbol', 'Coliseo Campus',
           '18/05/2030 · 18:00', total: 6, ocupados: 6,
           estado: EstadoPartido.equipoCompleto),
-      // fuera de los próximos 7 días
+    );
+    // fuera de los próximos 7 días
+    repositorio.sembrar(
+      lorgio,
       partido('junio', 'Vóley mixto', 'Voleibol', 'Estadio Módulo',
           '01/06/2030 · 10:00'),
-      // ya pasó (antes de "ahora")
+    );
+    // ya pasó (antes de "ahora")
+    repositorio.sembrar(
+      lorgio,
       partido('pasado', 'Futsal de práctica', 'Futsal', 'Coliseo Campus',
           '10/05/2030 · 09:00'),
-    ]);
-    await bd.guardarPartidos(ana, [
+    );
+    repositorio.sembrar(
+      ana,
       partido('ana', 'Futsal femenino', 'Futsal', 'Cancha Campus 2',
           '20/05/2030 · 17:00', ocupados: 4),
-    ]);
+    );
     // Partido de quien busca: nunca debe aparecer en sus resultados
-    await bd.guardarPartidos(diego, [
+    repositorio.sembrar(
+      diego,
       partido('propio', 'Futsal de Diego', 'Futsal', 'Cancha Diego',
           '16/05/2030 · 20:00'),
-    ]);
+    );
   });
 
   group('Búsqueda por nombre', () {
@@ -191,7 +196,7 @@ void main() {
 
   test('lugares: sugeridos más los existentes, sin repetir ni incluir los propios',
       () async {
-    expect(await ServicioAlmacenamiento().obtenerLugares(diego), [
+    expect(await repositorio.obtenerLugares(), [
       'Cancha Campus',
       'Coliseo Campus',
       'Estadio Módulo',
@@ -199,25 +204,57 @@ void main() {
     ]);
   });
 
-  test('la regla del navegador coincide con la consulta SQL', () async {
-    final todos = await ServicioAlmacenamiento().buscarPartidos(
-      diego,
-      const FiltroPartidos(),
-      ahora: ahora,
-    );
-    final filtros = [
-      const FiltroPartidos(texto: 'futsal'),
-      const FiltroPartidos(fecha: FiltroFecha.proximos7Dias, soloConCupos: true),
-      const FiltroPartidos(lugar: 'cancha campus'),
-      const FiltroPartidos(deporte: 'Básquetbol', soloConCupos: true),
+  group('Consulta enviada a la base de datos (Supabase)', () {
+    List<String> describir(FiltroPartidos filtro) => [
+      for (final c in filtro.condicionesConsulta(ahora))
+        '${c.columna} ${c.operador} ${c.valor}',
     ];
-    for (final filtro in filtros) {
-      final enMemoria = [
-        for (final item in todos)
-          if (filtro.coincide(item.partido, ahora)) item.partido.id,
-      ];
-      expect(enMemoria, await buscar(filtro));
-    }
+
+    test('sin filtros no agrega condiciones', () {
+      expect(describir(const FiltroPartidos()), isEmpty);
+    });
+
+    test('nombre y lugar se buscan con ILIKE (sin distinguir mayúsculas)', () {
+      expect(
+        describir(const FiltroPartidos(texto: ' Futsal ', lugar: 'Coliseo')),
+        ['titulo ilike %Futsal%', 'ubicacion ilike %Coliseo%'],
+      );
+    });
+
+    test('próximos 7 días: desde hoy 00:00 hasta el final del 7.º día', () {
+      final condiciones = const FiltroPartidos(
+        fecha: FiltroFecha.proximos7Dias,
+      ).condicionesConsulta(ahora);
+
+      expect(condiciones, hasLength(2));
+      expect(condiciones[0].operador, 'gte');
+      expect(
+        DateTime.parse(condiciones[0].valor as String).toLocal(),
+        DateTime(2030, 5, 15),
+      );
+      expect(condiciones[1].operador, 'lt');
+      expect(
+        DateTime.parse(condiciones[1].valor as String).toLocal(),
+        DateTime(2030, 5, 23),
+      );
+    });
+
+    test('con cupos usa la regla del #5: cupos abiertos, lugares y fecha futura',
+        () {
+      final condiciones = describir(const FiltroPartidos(soloConCupos: true));
+
+      expect(condiciones, hasLength(3));
+      expect(condiciones[0], 'estado eq cuposAbiertos');
+      expect(condiciones[1], 'hay_cupos eq true');
+      expect(condiciones[2], startsWith('fecha_inicio gte '));
+    });
+
+    test('los comodines escritos por el usuario se envían escapados', () {
+      expect(
+        describir(const FiltroPartidos(texto: '50%_off')),
+        [r'titulo ilike %50\%\_off%'],
+      );
+    });
   });
 
   group('Estado del filtro', () {

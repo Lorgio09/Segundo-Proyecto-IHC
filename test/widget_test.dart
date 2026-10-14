@@ -1,15 +1,13 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:unisport/main.dart';
-import 'package:unisport/servicios/servicio_autenticacion.dart';
+
+import 'apoyo/servicio_autenticacion_falso.dart';
 
 void main() {
-  setUp(() {
-    SharedPreferences.setMockInitialValues({});
-  });
-
-  testWidgets('Verifica renderizado de ruta publica de UniSport', (WidgetTester tester) async {
-    final servicioAuth = ServicioAutenticacion();
+  testWidgets('Verifica renderizado de ruta publica de UniSport', (
+    WidgetTester tester,
+  ) async {
+    final servicioAuth = ServicioAutenticacionFalso();
     await servicioAuth.inicializar();
 
     await tester.pumpWidget(UniSportApp(servicioAuth: servicioAuth));

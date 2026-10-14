@@ -1,0 +1,282 @@
+-- =============================================================================
+-- UniSport · Base de datos compartida en Supabase (PostgreSQL)
+--
+-- Cómo usarlo: Supabase -> SQL Editor -> New query -> pegar TODO este archivo
+-- -> Run. Se puede volver a ejecutar sin perder datos.
+--
+-- Las reglas de negocio se aplican aquí en el servidor (con los mismos mensajes
+-- que lib/modelos/modelo_partido.dart), así se respetan aunque varios teléfonos
+-- actúen al mismo tiempo.
+-- =============================================================================
+
+-- -----------------------------------------------------------------------------
+-- Tablas
+-- -----------------------------------------------------------------------------
+
+-- Datos públicos de cada estudiante. El correo y la contraseña los guarda
+-- Supabase Auth (tabla auth.users), con la contraseña cifrada.
+create table if not exists public.perfiles (
+  id               uuid primary key references auth.users (id) on delete cascade,
+  nombre           text not null,
+  correo           text not null,
+  carrera          text not null default 'Ingeniería',
+  deporte_favorito text not null default 'Futsal',
+  creado_en        timestamptz not null default now()
+);
+
+create table if not exists public.partidos (
+  id                 uuid primary key default gen_random_uuid(),
+  organizador_id     uuid not null references public.perfiles (id) on delete cascade,
+  organizador_nombre text not null,
+  titulo             text not null check (char_length(trim(titulo)) >= 3),
+  disciplina         text not null,
+  ubicacion          text not null,
+  fecha_inicio       timestamptz not null,
+  cupos_totales      int  not null check (cupos_totales between 2 and 30),
+  cupos_ocupados     int  not null default 1,
+  estado             text not null default 'cuposAbiertos'
+                     check (estado in ('cuposAbiertos', 'equipoCompleto')),
+  -- Columna calculada para poder filtrar "con cupos" desde la consulta
+  hay_cupos          boolean generated always as (cupos_ocupados < cupos_totales) stored,
+  creado_en          timestamptz not null default now(),
+  check (cupos_ocupados between 0 and cupos_totales)
+);
+
+-- Quién se unió a qué partido (desde "Explorar")
+create table if not exists public.inscripciones (
+  partido_id     uuid not null references public.partidos (id) on delete cascade,
+  jugador_id     uuid not null references public.perfiles (id) on delete cascade,
+  jugador_nombre text not null,
+  creado_en      timestamptz not null default now(),
+  primary key (partido_id, jugador_id)
+);
+
+create index if not exists partidos_fecha_idx on public.partidos (fecha_inicio);
+create index if not exists partidos_organizador_idx on public.partidos (organizador_id);
+create index if not exists inscripciones_jugador_idx on public.inscripciones (jugador_id);
+
+-- -----------------------------------------------------------------------------
+-- Al registrarse, se crea su perfil con los datos enviados desde la app
+-- -----------------------------------------------------------------------------
+create or replace function public.crear_perfil_nuevo_usuario()
+returns trigger
+language plpgsql
+security definer set search_path = public
+as $$
+begin
+  insert into public.perfiles (id, nombre, correo, carrera, deporte_favorito)
+  values (
+    new.id,
+    coalesce(nullif(new.raw_user_meta_data ->> 'nombre', ''), split_part(new.email, '@', 1)),
+    new.email,
+    coalesce(nullif(new.raw_user_meta_data ->> 'carrera', ''), 'Ingeniería'),
+    coalesce(nullif(new.raw_user_meta_data ->> 'deporte_favorito', ''), 'Futsal')
+  )
+  on conflict (id) do nothing;
+  return new;
+end;
+$$;
+
+drop trigger if exists al_crear_usuario on auth.users;
+create trigger al_crear_usuario
+  after insert on auth.users
+  for each row execute function public.crear_perfil_nuevo_usuario();
+
+-- -----------------------------------------------------------------------------
+-- Seguridad por fila (RLS): cada usuario solo modifica lo suyo
+-- -----------------------------------------------------------------------------
+alter table public.perfiles      enable row level security;
+alter table public.partidos      enable row level security;
+alter table public.inscripciones enable row level security;
+
+drop policy if exists "perfiles: leer (con sesión)" on public.perfiles;
+create policy "perfiles: leer (con sesión)" on public.perfiles
+  for select to authenticated using (true);
+
+drop policy if exists "perfiles: editar el propio" on public.perfiles;
+create policy "perfiles: editar el propio" on public.perfiles
+  for update to authenticated using (id = auth.uid());
+
+drop policy if exists "partidos: leer (con sesión)" on public.partidos;
+create policy "partidos: leer (con sesión)" on public.partidos
+  for select to authenticated using (true);
+
+drop policy if exists "partidos: crear como organizador" on public.partidos;
+create policy "partidos: crear como organizador" on public.partidos
+  for insert to authenticated
+  with check (organizador_id = auth.uid() and cupos_ocupados = 1
+              and estado = 'cuposAbiertos');
+
+drop policy if exists "partidos: eliminar el propio" on public.partidos;
+create policy "partidos: eliminar el propio" on public.partidos
+  for delete to authenticated using (organizador_id = auth.uid());
+
+-- No hay política de UPDATE en partidos ni de INSERT en inscripciones:
+-- esos cambios solo se hacen mediante las funciones de abajo, que validan
+-- las reglas de negocio.
+
+drop policy if exists "inscripciones: leer (con sesión)" on public.inscripciones;
+create policy "inscripciones: leer (con sesión)" on public.inscripciones
+  for select to authenticated using (true);
+
+-- -----------------------------------------------------------------------------
+-- Funciones con las reglas de negocio (se llaman desde la app con rpc)
+-- "for update" bloquea la fila del partido mientras dura la operación, así dos
+-- teléfonos no pueden ocupar el mismo último cupo.
+-- -----------------------------------------------------------------------------
+
+-- Regla de unión (issues #2 y #7, requisito #5)
+create or replace function public.unirse_a_partido(p_partido uuid)
+returns public.partidos
+language plpgsql
+security definer set search_path = public
+as $$
+declare
+  v_jugador uuid := auth.uid();
+  v_partido public.partidos;
+  v_nombre  text;
+begin
+  if v_jugador is null then
+    raise exception 'Debes iniciar sesión para unirte.';
+  end if;
+
+  select * into v_partido from public.partidos where id = p_partido for update;
+  if not found then
+    raise exception 'Este partido ya no existe.';
+  end if;
+
+  if v_partido.organizador_id = v_jugador or exists (
+       select 1 from public.inscripciones
+       where partido_id = p_partido and jugador_id = v_jugador) then
+    raise exception 'Ya formas parte de este equipo.';
+  end if;
+  if v_partido.fecha_inicio < now() then
+    raise exception 'El partido ya se jugó: su fecha ya pasó.';
+  end if;
+  if v_partido.estado = 'equipoCompleto' then
+    raise exception 'Convocatoria cerrada: el equipo ya está completo.';
+  end if;
+  if v_partido.cupos_ocupados >= v_partido.cupos_totales then
+    raise exception 'Cupos agotados: se alcanzó el límite máximo de jugadores.';
+  end if;
+
+  select nombre into v_nombre from public.perfiles where id = v_jugador;
+  insert into public.inscripciones (partido_id, jugador_id, jugador_nombre)
+  values (p_partido, v_jugador, coalesce(v_nombre, ''));
+
+  update public.partidos
+     set cupos_ocupados = cupos_ocupados + 1,
+         estado = case when cupos_ocupados + 1 >= cupos_totales
+                       then 'equipoCompleto' else estado end
+   where id = p_partido
+  returning * into v_partido;
+
+  return v_partido;
+end;
+$$;
+
+-- Organizador: sumar un jugador sin cuenta (restricción de la Tarea 3)
+create or replace function public.agregar_jugador_sin_cuenta(p_partido uuid)
+returns public.partidos
+language plpgsql
+security definer set search_path = public
+as $$
+declare
+  v_partido public.partidos;
+begin
+  select * into v_partido from public.partidos where id = p_partido for update;
+  if not found or v_partido.organizador_id <> auth.uid() then
+    raise exception 'Solo el organizador puede agregar jugadores.';
+  end if;
+  if v_partido.estado = 'equipoCompleto' then
+    raise exception 'Convocatoria cerrada: el equipo ya está completo.';
+  end if;
+  if v_partido.cupos_ocupados >= v_partido.cupos_totales then
+    raise exception 'Cupos agotados: se alcanzó el límite máximo de jugadores.';
+  end if;
+
+  update public.partidos
+     set cupos_ocupados = cupos_ocupados + 1,
+         estado = case when cupos_ocupados + 1 >= cupos_totales
+                       then 'equipoCompleto' else estado end
+   where id = p_partido
+  returning * into v_partido;
+  return v_partido;
+end;
+$$;
+
+-- Organizador: "Completar equipo" (Tarea 2)
+create or replace function public.completar_equipo(p_partido uuid)
+returns public.partidos
+language plpgsql
+security definer set search_path = public
+as $$
+declare
+  v_partido public.partidos;
+begin
+  select * into v_partido from public.partidos where id = p_partido for update;
+  if not found or v_partido.organizador_id <> auth.uid() then
+    raise exception 'Solo el organizador puede completar el equipo';
+  end if;
+  if v_partido.estado <> 'cuposAbiertos' then
+    raise exception 'El equipo de "%" ya está completo', v_partido.titulo;
+  end if;
+
+  update public.partidos
+     set cupos_ocupados = cupos_totales, estado = 'equipoCompleto'
+   where id = p_partido
+  returning * into v_partido;
+  return v_partido;
+end;
+$$;
+
+-- Organizador: editar datos del partido (regla de edición de cupos)
+create or replace function public.editar_partido(
+  p_partido       uuid,
+  p_titulo        text,
+  p_disciplina    text,
+  p_ubicacion     text,
+  p_fecha_inicio  timestamptz,
+  p_cupos_totales int
+)
+returns public.partidos
+language plpgsql
+security definer set search_path = public
+as $$
+declare
+  v_partido public.partidos;
+begin
+  select * into v_partido from public.partidos where id = p_partido for update;
+  if not found or v_partido.organizador_id <> auth.uid() then
+    raise exception 'Solo el organizador puede editar el partido.';
+  end if;
+
+  if p_cupos_totales <> v_partido.cupos_totales then
+    if v_partido.estado = 'equipoCompleto' then
+      raise exception 'El equipo ya está completo: no se pueden cambiar los cupos.';
+    end if;
+    if p_cupos_totales < v_partido.cupos_ocupados then
+      raise exception 'No puedes dejar menos cupos (%) que jugadores inscritos (%).',
+        p_cupos_totales, v_partido.cupos_ocupados;
+    end if;
+  end if;
+
+  update public.partidos
+     set titulo        = p_titulo,
+         disciplina    = p_disciplina,
+         ubicacion     = p_ubicacion,
+         fecha_inicio  = p_fecha_inicio,
+         cupos_totales = p_cupos_totales,
+         estado = case when cupos_ocupados >= p_cupos_totales
+                       then 'equipoCompleto' else estado end
+   where id = p_partido
+  returning * into v_partido;
+  return v_partido;
+end;
+$$;
+
+grant execute on function public.unirse_a_partido(uuid)           to authenticated;
+grant execute on function public.agregar_jugador_sin_cuenta(uuid) to authenticated;
+grant execute on function public.completar_equipo(uuid)           to authenticated;
+grant execute on function public.editar_partido(uuid, text, text, text, timestamptz, int)
+  to authenticated;

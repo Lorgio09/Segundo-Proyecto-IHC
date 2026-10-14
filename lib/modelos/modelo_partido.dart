@@ -67,6 +67,14 @@ class ModeloPartido {
     r'(\d{1,2})/(\d{1,2})/(\d{4})\D+(\d{1,2}):(\d{2})',
   );
 
+  /// Convierte una fecha real en el texto "dd/mm/aaaa · hh:mm" que muestran
+  /// las pantallas (la base de datos guarda la fecha real).
+  static String formatearFechaHora(DateTime fecha) {
+    String dos(int n) => n.toString().padLeft(2, '0');
+    return '${dos(fecha.day)}/${dos(fecha.month)}/${fecha.year} · '
+        '${dos(fecha.hour)}:${dos(fecha.minute)}';
+  }
+
   /// Convierte "dd/mm/aaaa · hh:mm" en una fecha real.
   static DateTime? interpretarFechaHora(String texto) {
     final m = _formatoFechaHora.firstMatch(texto);

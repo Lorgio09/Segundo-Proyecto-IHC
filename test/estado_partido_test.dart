@@ -1,8 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:unisport/modelos/modelo_partido.dart';
-import 'package:unisport/servicios/servicio_almacenamiento.dart';
+import 'apoyo/repositorio_en_memoria.dart';
 
 /// Pruebas unitarias de la regla de cambio de estado:
 ///   Cupos abiertos --(Completar equipo)--> Equipo completo
@@ -84,34 +82,28 @@ void main() {
   });
 
   group('Conservar el cambio después de recargar', () {
-    const correo = 'lorgio@unisport.edu';
+    test('el estado Equipo completo queda guardado en el repositorio', () async {
+      final repositorio = RepositorioEnMemoria(
+        usuarioId: 'u-lorgio',
+        usuarioNombre: 'Lorgio',
+      );
+      final creado = await repositorio.crearPartido(crearPartido());
 
-    setUpAll(() {
-      sqfliteFfiInit();
-      databaseFactory = databaseFactoryFfi;
+      await repositorio.completarEquipo(creado.id);
+
+      // Volver a leer = recargar la pantalla
+      final recuperado = (await repositorio.obtenerMisPartidos()).single;
+      expect(recuperado.estado, EstadoPartido.equipoCompleto);
+      expect(recuperado.cuposOcupados, recuperado.cuposTotales);
     });
 
-    setUp(() async {
-      SharedPreferences.setMockInitialValues({});
-      await ServicioAlmacenamiento.reiniciarBaseDatos(
-        ruta: inMemoryDatabasePath,
-      );
-    });
+    test('la fecha real se convierte al texto de la pantalla y de vuelta', () {
+      final fecha = DateTime(2099, 6, 15, 9, 30);
 
-    test('el estado Equipo completo se guarda y se recupera', () async {
-      final almacenamiento = ServicioAlmacenamiento();
-      final completo = crearPartido().completarEquipo();
+      final texto = ModeloPartido.formatearFechaHora(fecha);
 
-      await almacenamiento.guardarPartidos(correo, [completo]);
-
-      // Un servicio nuevo simula cerrar y volver a abrir la app
-      final recuperados = await ServicioAlmacenamiento().obtenerPartidos(
-        correo,
-      );
-
-      expect(recuperados, hasLength(1));
-      expect(recuperados.single.estado, EstadoPartido.equipoCompleto);
-      expect(recuperados.single.cuposOcupados, 10);
+      expect(texto, '15/06/2099 · 09:30');
+      expect(ModeloPartido.interpretarFechaHora(texto), fecha);
     });
 
     test('un partido guardado sin estado se recupera con cupos abiertos', () {

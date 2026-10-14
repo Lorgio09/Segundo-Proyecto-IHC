@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../modelos/modelo_partido.dart';
-import '../servicios/servicio_almacenamiento.dart';
+import '../servicios/repositorio_partidos.dart';
 import '../servicios/servicio_autenticacion.dart';
 import '../tema/tema_app.dart';
 import '../widgets/tarjeta_partido.dart';
@@ -13,8 +13,8 @@ import 'vista_login.dart';
 /// Ruta Privada: Mis Partidos (Protegida)
 /// Si un usuario sin sesión intenta acceder, se redirige inmediatamente a la pantalla de Login.
 ///
-/// Funcionalidad vertical (Clase 13):
-/// 1 Capturar -> 2 Construir -> 3 Guardar -> 4 Mostrar -> 5 Recuperar
+/// Cada acción se guarda en la base de datos compartida (Supabase), así los
+/// cambios se ven desde cualquier dispositivo y se mantienen al recargar.
 class VistaMisPartidos extends StatefulWidget {
   final ServicioAutenticacion servicioAuth;
 
@@ -25,11 +25,12 @@ class VistaMisPartidos extends StatefulWidget {
 }
 
 class _VistaMisPartidosState extends State<VistaMisPartidos> {
-  final ServicioAlmacenamiento _almacenamiento = ServicioAlmacenamiento();
   List<ModeloPartido> _partidos = [];
   Map<String, List<String>> _jugadoresInscritos = {};
   bool _cargando = true;
   String _filtroActivo = 'todos';
+
+  RepositorioPartidos get _repositorio => widget.servicioAuth.partidos;
 
   @override
   void initState() {
@@ -57,22 +58,53 @@ class _VistaMisPartidosState extends State<VistaMisPartidos> {
     });
   }
 
-  // 5 - RECUPERAR: lee lo guardado al abrir la pantalla: los partidos que
-  // organizo y los de otros estudiantes a los que me uní.
-  Future<void> _cargarPartidos() async {
-    final usuario = widget.servicioAuth.usuarioActual;
-    if (usuario == null) return;
+  void _avisar(String texto, {bool error = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(texto),
+        backgroundColor: error ? TemaApp.rojoAlerta : null,
+      ),
+    );
+  }
 
-    final propios = await _almacenamiento.obtenerPartidos(usuario.correo);
-    final unidos = await _almacenamiento.obtenerPartidosUnidos(usuario.correo);
-    final inscritos = await _almacenamiento.obtenerJugadoresInscritos(
-      usuario.correo,
+  /// Ejecuta una operación en la base de datos. Si una regla la rechaza o no
+  /// hay conexión, muestra el motivo y devuelve null.
+  Future<T?> _intentar<T>(Future<T> Function() operacion) async {
+    try {
+      return await operacion();
+    } on StateError catch (e) {
+      if (mounted) _avisar(e.message, error: true);
+      return null;
+    }
+  }
+
+  void _reemplazar(ModeloPartido actualizado) {
+    setState(() {
+      _partidos = [
+        for (final p in _partidos) p.id == actualizado.id ? actualizado : p,
+      ];
+    });
+  }
+
+  // 5 - RECUPERAR: lee de la base de datos los partidos que organizo y los de
+  // otros estudiantes a los que me uní.
+  Future<void> _cargarPartidos() async {
+    if (widget.servicioAuth.usuarioActual == null) return;
+
+    final datos = await _intentar(
+      () async => (
+        propios: await _repositorio.obtenerMisPartidos(),
+        unidos: await _repositorio.obtenerPartidosUnidos(),
+        inscritos: await _repositorio.obtenerJugadoresInscritos(),
+      ),
     );
     if (!mounted) return;
 
     setState(() {
-      _partidos = [...propios, ...unidos];
-      _jugadoresInscritos = inscritos;
+      if (datos != null) {
+        _partidos = [...datos.propios, ...datos.unidos];
+        _jugadoresInscritos = datos.inscritos;
+      }
       _cargando = false;
     });
   }
@@ -104,40 +136,27 @@ class _VistaMisPartidosState extends State<VistaMisPartidos> {
     // Si la persona volvió atrás sin guardar, no se hace nada
     if (nuevo == null || !mounted) return;
 
-    // 3: GUARDAR
-    final nuevaLista = [nuevo, ..._partidos];
-    await _almacenamiento.guardarPartidos(usuario.correo, nuevaLista);
-    if (!mounted) return;
+    // 3: GUARDAR en la base de datos (devuelve el partido con su id)
+    final guardado = await _intentar(() => _repositorio.crearPartido(nuevo));
+    if (guardado == null || !mounted) return;
 
     // 4: MOSTRAR
-    setState(() {
-      _partidos = nuevaLista;
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Partido "${nuevo.titulo}" creado y guardado')),
-    );
+    setState(() => _partidos = [guardado, ..._partidos]);
+    _avisar('Partido "${guardado.titulo}" creado y guardado');
   }
 
-  // ACCIÓN "COMPLETAR EQUIPO": aplica la regla del modelo, guarda y muestra el resultado
+  // ACCIÓN "COMPLETAR EQUIPO": la regla del modelo decide en pantalla y el
+  // servidor la vuelve a aplicar al guardar
   Future<void> _completarEquipo(ModeloPartido partido) async {
-    final usuario = widget.servicioAuth.usuarioActual;
-    if (usuario == null || !partido.puedeCompletarEquipo) return;
+    if (!partido.puedeCompletarEquipo) return;
 
-    final actualizado = partido.completarEquipo();
-    final nuevaLista = [
-      for (final p in _partidos) p.id == partido.id ? actualizado : p,
-    ];
-
-    // GUARDAR: el cambio sobrevive a recargar la app
-    await _almacenamiento.guardarPartidos(usuario.correo, nuevaLista);
-    if (!mounted) return;
-
-    setState(() => _partidos = nuevaLista);
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('¡Equipo completo en "${partido.titulo}"!')),
+    final actualizado = await _intentar(
+      () => _repositorio.completarEquipo(partido.id),
     );
+    if (actualizado == null || !mounted) return;
+
+    _reemplazar(actualizado);
+    _avisar('¡Equipo completo en "${partido.titulo}"!');
   }
 
   // ACCIÓN "EDITAR PARTIDO": abre el formulario con datos pre-cargados y actualiza
@@ -157,24 +176,15 @@ class _VistaMisPartidosState extends State<VistaMisPartidos> {
 
     if (editado == null || !mounted) return;
 
-    final nuevaLista = [
-      for (final p in _partidos) p.id == partido.id ? editado : p,
-    ];
-    await _almacenamiento.guardarPartidos(usuario.correo, nuevaLista);
-    if (!mounted) return;
+    final guardado = await _intentar(() => _repositorio.editarPartido(editado));
+    if (guardado == null || !mounted) return;
 
-    setState(() => _partidos = nuevaLista);
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Partido "${editado.titulo}" actualizado')),
-    );
+    _reemplazar(guardado);
+    _avisar('Partido "${guardado.titulo}" actualizado');
   }
 
   // ACCIÓN "ELIMINAR PARTIDO": solicita confirmación previa antes de borrar
   Future<void> _eliminarPartido(ModeloPartido partido) async {
-    final usuario = widget.servicioAuth.usuarioActual;
-    if (usuario == null) return;
-
     final confirmar = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -207,65 +217,45 @@ class _VistaMisPartidosState extends State<VistaMisPartidos> {
 
     if (confirmar != true || !mounted) return;
 
-    final nuevaLista = _partidos.where((p) => p.id != partido.id).toList();
-    await _almacenamiento.guardarPartidos(usuario.correo, nuevaLista);
-    if (!mounted) return;
+    final eliminado = await _intentar(() async {
+      await _repositorio.eliminarPartido(partido.id);
+      return true;
+    });
+    if (eliminado == null || !mounted) return;
 
-    setState(() => _partidos = nuevaLista);
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Partido "${partido.titulo}" eliminado')),
-    );
+    setState(() {
+      _partidos = _partidos.where((p) => p.id != partido.id).toList();
+    });
+    _avisar('Partido "${partido.titulo}" eliminado');
   }
 
-  // Aplica la restricción "un equipo completo no permite agregar más jugadores".
-  // Si está bloqueada, explica el motivo; si no, suma el jugador y persiste.
-  Future<void> _sumarJugador(
-    ModeloPartido partido, {
-    required String mensajeExito,
-  }) async {
-    final usuario = widget.servicioAuth.usuarioActual;
-    if (usuario == null) return;
-
+  // ACCIÓN "AGREGAR JUGADOR" (organizador). Aplica la restricción "un equipo
+  // completo no permite agregar más jugadores": si está bloqueada, explica el
+  // motivo; si no, el servidor suma el jugador.
+  Future<void> _agregarJugador(ModeloPartido partido) async {
     if (!partido.puedeAgregarJugador) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'No se puede agregar jugadores. '
-            '${partido.motivoBloqueoAgregarJugador ?? "Convocatoria no disponible."}',
-          ),
-          backgroundColor: TemaApp.rojoAlerta,
-        ),
+      _avisar(
+        'No se puede agregar jugadores. '
+        '${partido.motivoBloqueoAgregarJugador ?? "Convocatoria no disponible."}',
+        error: true,
       );
       return;
     }
 
-    final actualizado = partido.agregarJugador();
-    final nuevaLista = [
-      for (final p in _partidos) p.id == partido.id ? actualizado : p,
-    ];
+    final actualizado = await _intentar(
+      () => _repositorio.agregarJugadorSinCuenta(partido.id),
+    );
+    if (actualizado == null || !mounted) return;
 
-    await _almacenamiento.guardarPartidos(usuario.correo, nuevaLista);
-    if (!mounted) return;
-
-    setState(() => _partidos = nuevaLista);
-
-    final completo = actualizado.estado == EstadoPartido.equipoCompleto;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          completo ? '$mensajeExito ¡Equipo completo!' : mensajeExito,
-        ),
-      ),
+    _reemplazar(actualizado);
+    final mensaje =
+        'Jugador agregado (${actualizado.cuposOcupados}/${actualizado.cuposTotales}).';
+    _avisar(
+      actualizado.estado == EstadoPartido.equipoCompleto
+          ? '$mensaje ¡Equipo completo!'
+          : mensaje,
     );
   }
-
-  // ACCIÓN "AGREGAR JUGADOR" (organizador)
-  Future<void> _agregarJugador(ModeloPartido partido) => _sumarJugador(
-    partido,
-    mensajeExito:
-        'Jugador agregado (${partido.cuposOcupados + 1}/${partido.cuposTotales}).',
-  );
 
   Future<void> _cerrarSesion() async {
     final confirmar = await showDialog<bool>(
@@ -322,11 +312,6 @@ class _VistaMisPartidosState extends State<VistaMisPartidos> {
         title: const Text('Mis partidos'),
         actions: [
           IconButton(
-            tooltip: 'Explorar partidos',
-            icon: const Icon(LucideIcons.compass, size: 21),
-            onPressed: _explorarPartidos,
-          ),
-          IconButton(
             tooltip: 'Cerrar sesión',
             icon: const Icon(
               LucideIcons.logOut,
@@ -334,6 +319,23 @@ class _VistaMisPartidosState extends State<VistaMisPartidos> {
               size: 20,
             ),
             onPressed: _cerrarSesion,
+          ),
+        ],
+      ),
+      // Misma navegación principal que la portada (Clase 15, hallazgo #1 · H6)
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: 1,
+        onDestinationSelected: (indice) {
+          if (indice == 0) _explorarPartidos();
+        },
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(LucideIcons.compass),
+            label: 'Explorar',
+          ),
+          NavigationDestination(
+            icon: Icon(LucideIcons.calendarDays),
+            label: 'Mis partidos',
           ),
         ],
       ),

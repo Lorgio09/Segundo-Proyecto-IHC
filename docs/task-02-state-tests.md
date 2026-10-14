@@ -12,7 +12,7 @@
 | Acción | Botón **Completar equipo** en la tarjeta del partido (pantalla *Mis partidos*) |
 | Estado resultante | `Equipo completo` |
 | Efecto adicional | Los cupos ocupados pasan a ser iguales al total (por ejemplo `3/10` → `10/10`) |
-| Persistencia | El cambio se guarda con `shared_preferences` y se conserva al recargar o reiniciar la app |
+| Persistencia | El cambio se guarda en la base de datos compartida (Supabase) y se conserva al recargar, reiniciar la app o abrirla en otro dispositivo |
 
 ### Regla de cambio de estado
 

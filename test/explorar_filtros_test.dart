@@ -1,14 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:unisport/modelos/modelo_partido.dart';
-import 'package:unisport/servicios/servicio_almacenamiento.dart';
-import 'package:unisport/servicios/servicio_autenticacion.dart';
 import 'package:unisport/vistas/vista_explorar_partidos.dart';
 
-/// Prueba de punta a punta del requisito #6:
-/// interfaz (Explorar) -> consulta (buscarPartidos) -> base de datos SQLite.
+import 'apoyo/servicio_autenticacion_falso.dart';
+
+/// Prueba de punta a punta del requisito #6 con la pantalla real:
+/// interfaz (Explorar) -> repositorio (buscarPartidos) -> datos de otro usuario.
 ///
 /// Ejecutar con:  flutter test test/explorar_filtros_test.dart
 /// (Los avisos de google_fonts en consola son normales: la prueba no descarga
@@ -24,60 +22,39 @@ ModeloPartido partido(String id, String titulo, String disciplina) {
     cuposTotales: 10,
     cuposOcupados: 2,
     organizadorNombre: 'Lorgio',
-    soyOrganizador: true,
-    estoyUnido: true,
   );
 }
 
 void main() {
-  setUpAll(() {
-    sqfliteFfiInit();
-    databaseFactory = databaseFactoryFfi;
-  });
-
-  testWidgets('filtrar desde la pantalla consulta la base de datos', (
+  testWidgets('filtrar desde la pantalla consulta los partidos de otros', (
     tester,
   ) async {
-    final auth = ServicioAutenticacion();
-
-    // Las operaciones reales de base de datos se ejecutan fuera del reloj falso
-    await tester.runAsync(() async {
-      SharedPreferences.setMockInitialValues({});
-      await ServicioAlmacenamiento.reiniciarBaseDatos(
-        ruta: inMemoryDatabasePath,
-      );
-      await ServicioAlmacenamiento().guardarPartidos('lorgio@unisport.edu', [
-        partido('a', 'Futsal nocturno', 'Futsal'),
-        partido('b', 'Vóley mixto', 'Voleibol'),
-      ]);
-      await auth.inicializar();
-      await auth.iniciarSesion('diego@unisport.edu', '123456');
-    });
-
-    Future<void> esperarConsulta() async {
-      await tester.runAsync(
-        () => Future<void>.delayed(const Duration(milliseconds: 300)),
-      );
-      await tester.pump();
-    }
+    final auth = ServicioAutenticacionFalso();
+    // Partidos que organizó Lorgio
+    auth.repositorio
+      ..sembrar('u-lorgio', partido('a', 'Futsal nocturno', 'Futsal'))
+      ..sembrar('u-lorgio', partido('b', 'Vóley mixto', 'Voleibol'));
+    // Diego abre la app y explora
+    await auth.iniciarSesion('diego@unisport.edu', '123456');
 
     await tester.pumpWidget(
       MaterialApp(home: VistaExplorarPartidos(servicioAuth: auth)),
     );
-    await esperarConsulta();
+    await tester.pump();
 
     expect(find.text('2 partidos encontrados'), findsOneWidget);
+    expect(find.text('Organiza: Lorgio'), findsNWidgets(2));
 
     // Búsqueda con resultados
     await tester.enterText(find.byType(TextField), 'vóley');
-    await esperarConsulta();
+    await tester.pump();
     expect(find.text('1 partido encontrado'), findsOneWidget);
     expect(find.text('Vóley mixto'), findsOneWidget);
     expect(find.text('Futsal nocturno'), findsNothing);
 
     // Búsqueda sin resultados: mensaje claro en lugar de lista vacía
     await tester.enterText(find.byType(TextField), 'rugby');
-    await esperarConsulta();
+    await tester.pump();
     expect(
       find.text('Ningún partido coincide con tu búsqueda'),
       findsOneWidget,
@@ -85,7 +62,28 @@ void main() {
 
     // Quitar filtros vuelve a mostrar todo
     await tester.tap(find.text('Quitar filtros'));
-    await esperarConsulta();
+    await tester.pump();
     expect(find.text('2 partidos encontrados'), findsOneWidget);
+  });
+
+  testWidgets('unirse desde la pantalla actualiza los cupos', (tester) async {
+    final auth = ServicioAutenticacionFalso();
+    auth.repositorio.sembrar(
+      'u-lorgio',
+      partido('a', 'Futsal nocturno', 'Futsal'),
+    );
+    await auth.iniciarSesion('diego@unisport.edu', '123456');
+
+    await tester.pumpWidget(
+      MaterialApp(home: VistaExplorarPartidos(servicioAuth: auth)),
+    );
+    await tester.pump();
+
+    await tester.tap(find.text('Unirme al equipo'));
+    await tester.pump();
+
+    expect(find.text('3/10'), findsOneWidget);
+    expect(find.text('Ya formas parte de este equipo.'), findsOneWidget);
+    expect(find.text('Unirme al equipo'), findsNothing);
   });
 }
