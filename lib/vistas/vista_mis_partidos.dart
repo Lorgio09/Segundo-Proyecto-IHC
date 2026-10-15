@@ -257,6 +257,51 @@ class _VistaMisPartidosState extends State<VistaMisPartidos> {
     );
   }
 
+  // ACCIÓN "SALIR DEL PARTIDO" (H3): quien se había unido libera su cupo
+  Future<void> _salirDelPartido(ModeloPartido partido) async {
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('¿Salir del partido?', style: TemaApp.titulo(tamano: 20)),
+        content: Text(
+          'Dejarás tu cupo en "${partido.titulo}" y otra persona podrá tomarlo.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: TemaApp.rojoAlerta,
+              minimumSize: const Size(120, 44),
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Sí, salir'),
+          ),
+        ],
+      ),
+    );
+    if (confirmar != true || !mounted) return;
+
+    try {
+      await widget.servicioAuth.partidos.salirDelPartido(partido.id);
+      if (!mounted) return;
+      setState(() => _partidos = _partidos.where((p) => p.id != partido.id).toList());
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Saliste de "${partido.titulo}". Tu cupo quedó libre.')),
+      );
+    } on StateError catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('No puedes salir. ${e.message}'),
+          backgroundColor: TemaApp.rojoAlerta,
+        ),
+      );
+    }
+  }
+
   Future<void> _cerrarSesion() async {
     final confirmar = await showDialog<bool>(
       context: context,
@@ -395,6 +440,7 @@ class _VistaMisPartidosState extends State<VistaMisPartidos> {
                           ? _jugadoresInscritos[p.id] ?? const []
                           : null,
                       onEliminar: () => _eliminarPartido(p),
+                      onSalir: () => _salirDelPartido(p),
                     ),
                   ),
               ],

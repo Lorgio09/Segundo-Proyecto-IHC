@@ -190,6 +190,16 @@ class RepositorioEnMemoria implements RepositorioPartidos {
     ));
     return _guardar(fila, unido);
   }
+
+  @override
+  Future<ModeloPartido> salirDelPartido(String partidoId) async {
+    final fila = _buscar(partidoId);
+    final salido = _visto(fila).salir(); // lanza StateError con el motivo
+    _inscripciones.removeWhere(
+      (i) => i.partidoId == partidoId && i.jugadorId == usuarioId,
+    );
+    return _guardar(fila, salido);
+  }
 }
 
 class _Fila {

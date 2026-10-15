@@ -127,4 +127,31 @@ void main() {
 
     expect(find.text('Nombre: "futsal"'), findsOneWidget);
   });
+
+  testWidgets('H3: tras unirse se puede salir del partido y el cupo se libera', (
+    tester,
+  ) async {
+    final auth = ServicioAutenticacionFalso();
+    auth.repositorio.sembrar('u-lorgio', partido('a', 'Futsal nocturno', 'Futsal'));
+    await auth.iniciarSesion('diego@unisport.edu', '123456');
+    await tester.pumpWidget(
+      MaterialApp(home: VistaExplorarPartidos(servicioAuth: auth)),
+    );
+    await tester.pump();
+
+    await tester.tap(find.text('Unirme al equipo'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Sí, unirme'));
+    await tester.pumpAndSettle();
+    expect(find.text('3/10'), findsOneWidget);
+
+    await tester.tap(find.text('Salir del partido'));
+    await tester.pumpAndSettle();
+    expect(find.text('¿Salir del partido?'), findsOneWidget);
+    await tester.tap(find.text('Sí, salir'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('2/10'), findsOneWidget);
+    expect(find.text('Unirme al equipo'), findsOneWidget);
+  });
 }

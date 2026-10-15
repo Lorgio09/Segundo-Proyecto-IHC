@@ -235,4 +235,10 @@ class RepositorioSupabase implements RepositorioPartidos {
   @override
   Future<ModeloPartido> unirseAPartido(String partidoId) =>
       _llamar('unirse_a_partido', {'p_partido': partidoId}, unido: true);
+
+  @override
+  Future<ModeloPartido> salirDelPartido(String partidoId) async {
+    final salido = await _llamar('salir_del_partido', {'p_partido': partidoId});
+    return salido.copyWith(estoyUnido: false);
+  }
 }

@@ -134,6 +134,51 @@ class _VistaExplorarPartidosState extends State<VistaExplorarPartidos> {
     }
   }
 
+  // ACCIÓN "SALIR DEL PARTIDO" (H3): pide confirmación y libera el cupo
+  Future<void> _salir(ModeloPartido partido) async {
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('¿Salir del partido?', style: TemaApp.titulo(tamano: 20)),
+        content: Text(
+          'Dejarás tu cupo en "${partido.titulo}" y otra persona podrá tomarlo.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: TemaApp.rojoAlerta,
+              minimumSize: const Size(120, 44),
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Sí, salir'),
+          ),
+        ],
+      ),
+    );
+    if (confirmar != true || !mounted) return;
+
+    try {
+      final salido = await widget.servicioAuth.partidos.salirDelPartido(
+        partido.id,
+      );
+      if (!mounted) return;
+      setState(() {
+        _partidos = [
+          for (final p in _partidos) p.id == partido.id ? salido : p,
+        ];
+      });
+      _avisar('Saliste de "${salido.titulo}". Tu cupo quedó libre.');
+    } on StateError catch (e) {
+      if (!mounted) return;
+      _avisar('No puedes salir. ${e.message}', error: true);
+      await _cargar();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -192,6 +237,7 @@ class _VistaExplorarPartidosState extends State<VistaExplorarPartidos> {
                     (partido) => TarjetaPartido(
                       partido: partido,
                       onUnirse: () => _unirse(partido),
+                      onSalir: () => _salir(partido),
                     ),
                   ),
                 ],

@@ -46,4 +46,7 @@ abstract class RepositorioPartidos {
 
   /// "Unirme al equipo" (requisito #5).
   Future<ModeloPartido> unirseAPartido(String partidoId);
+
+  /// "Salir del partido": libera el cupo de quien se había unido (H3).
+  Future<ModeloPartido> salirDelPartido(String partidoId);
 }

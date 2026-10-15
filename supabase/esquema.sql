@@ -275,7 +275,49 @@ begin
 end;
 $$;
 
+-- Salir del partido (H3 Control y libertad): quien se unió puede retirarse
+create or replace function public.salir_del_partido(p_partido uuid)
+returns public.partidos
+language plpgsql
+security definer set search_path = public
+as $$
+declare
+  v_jugador uuid := auth.uid();
+  v_partido public.partidos;
+begin
+  if v_jugador is null then
+    raise exception 'Debes iniciar sesión para salir del partido.';
+  end if;
+
+  select * into v_partido from public.partidos where id = p_partido for update;
+  if not found then
+    raise exception 'Este partido ya no existe.';
+  end if;
+  if v_partido.organizador_id = v_jugador then
+    raise exception 'El organizador no puede salir de su propio partido: elimínalo si ya no se realizará.';
+  end if;
+  if not exists (select 1 from public.inscripciones
+                 where partido_id = p_partido and jugador_id = v_jugador) then
+    raise exception 'No formas parte de este equipo.';
+  end if;
+  if v_partido.fecha_inicio < now() then
+    raise exception 'El partido ya se jugó: su fecha ya pasó.';
+  end if;
+
+  delete from public.inscripciones
+   where partido_id = p_partido and jugador_id = v_jugador;
+
+  update public.partidos
+     set cupos_ocupados = cupos_ocupados - 1,
+         estado = 'cuposAbiertos'
+   where id = p_partido
+  returning * into v_partido;
+  return v_partido;
+end;
+$$;
+
 grant execute on function public.unirse_a_partido(uuid)           to authenticated;
+grant execute on function public.salir_del_partido(uuid)           to authenticated;
 grant execute on function public.agregar_jugador_sin_cuenta(uuid) to authenticated;
 grant execute on function public.completar_equipo(uuid)           to authenticated;
 grant execute on function public.editar_partido(uuid, text, text, text, timestamptz, int)

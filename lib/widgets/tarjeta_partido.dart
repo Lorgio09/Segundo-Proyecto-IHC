@@ -16,6 +16,9 @@ class TarjetaPartido extends StatelessWidget {
   final VoidCallback? onEliminar;
   final VoidCallback? onUnirse;
 
+  /// "Salir del partido" (H3): lo ve quien se unió, mientras la regla lo permita.
+  final VoidCallback? onSalir;
+
   /// Acción del organizador: suma un jugador. Si la restricción lo bloquea
   /// (equipo completo), el botón se ve apagado y explica el motivo.
   final VoidCallback? onAgregarJugador;
@@ -31,6 +34,7 @@ class TarjetaPartido extends StatelessWidget {
     this.onEditar,
     this.onEliminar,
     this.onUnirse,
+    this.onSalir,
     this.onAgregarJugador,
     this.jugadoresUnidos,
   });
@@ -341,6 +345,18 @@ class TarjetaPartido extends StatelessWidget {
                 borde: const Color(0xFFBAE6FD),
                 color: const Color(0xFF075985),
               ),
+              if (onSalir != null && partido.puedeSalir) ...[
+                const SizedBox(height: 10),
+                OutlinedButton.icon(
+                  onPressed: onSalir,
+                  icon: const Icon(LucideIcons.logOut, size: 17),
+                  label: const Text('Salir del partido'),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(double.infinity, 44),
+                    foregroundColor: TemaApp.rojoAlerta,
+                  ),
+                ),
+              ],
             ] else if (!partido.puedeUnirse) ...[
               // Rechazo del criterio 3: equipo completo (se explica el motivo)
               const SizedBox(height: 12),

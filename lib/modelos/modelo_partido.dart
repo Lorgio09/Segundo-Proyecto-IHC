@@ -197,6 +197,37 @@ class ModeloPartido {
   }
 
   // ---------------------------------------------------------------------------
+  // REGLA DE SALIDA DEL PARTIDO (H3 Control y libertad)
+  //   Quien se unió puede retirarse mientras el partido no haya pasado. El
+  //   organizador no sale de su propio partido (lo elimina). Al salir se libera
+  //   un cupo y la convocatoria vuelve a "Cupos abiertos".
+  // ---------------------------------------------------------------------------
+
+  /// Motivo por el que no puede salir, o null si la salida está permitida.
+  String? get motivoRechazoSalir {
+    if (soyOrganizador) {
+      return 'El organizador no puede salir de su propio partido: elimínalo si ya no se realizará.';
+    }
+    if (!estoyUnido) return 'No formas parte de este equipo.';
+    if (fechaPasada) return 'El partido ya se jugó: su fecha ya pasó.';
+    return null;
+  }
+
+  bool get puedeSalir => motivoRechazoSalir == null;
+
+  /// Acción "Salir del partido". Devuelve una copia con un cupo menos ocupado.
+  /// Lanza [StateError] con el motivo si la regla lo rechaza.
+  ModeloPartido salir() {
+    final motivo = motivoRechazoSalir;
+    if (motivo != null) throw StateError(motivo);
+    return copyWith(
+      cuposOcupados: cuposOcupados - 1,
+      estoyUnido: false,
+      estado: EstadoPartido.cuposAbiertos,
+    );
+  }
+
+  // ---------------------------------------------------------------------------
   // REGLA DE EDICIÓN DE CUPOS
   //   - Con el equipo completo no se pueden cambiar los cupos: subirlos sería
   //     agregar jugadores, y "un equipo completo no permite agregar más".

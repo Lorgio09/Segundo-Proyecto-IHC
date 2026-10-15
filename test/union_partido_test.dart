@@ -122,4 +122,50 @@ void main() {
       expect(futuro.puedeUnirse, isTrue);
     });
 });
+
+  group('H3 · Salir del partido', () {
+    test('quien se unió puede salir: libera el cupo y reabre la convocatoria', () {
+      final unido = crearPartido(
+        estoyUnido: true,
+        cuposTotales: 10,
+        cuposOcupados: 10,
+        estado: EstadoPartido.equipoCompleto,
+      );
+
+      expect(unido.puedeSalir, isTrue);
+      final salido = unido.salir();
+
+      expect(salido.cuposOcupados, 9);
+      expect(salido.estoyUnido, isFalse);
+      expect(salido.estado, EstadoPartido.cuposAbiertos);
+      expect(salido.puedeUnirse, isTrue);
+    });
+
+    test('el organizador no puede salir de su propio partido', () {
+      final propio = crearPartido(soyOrganizador: true, estoyUnido: true);
+
+      expect(propio.puedeSalir, isFalse);
+      expect(() => propio.salir(), throwsStateError);
+    });
+
+    test('quien no se unió no puede salir', () {
+      final ajeno = crearPartido();
+
+      expect(ajeno.motivoRechazoSalir, 'No formas parte de este equipo.');
+      expect(() => ajeno.salir(), throwsStateError);
+    });
+
+    test('no se puede salir de un partido cuya fecha ya pasó', () {
+      final pasado = crearPartido(
+        estoyUnido: true,
+        fechaHora: '01/03/2024 · 18:00',
+      );
+
+      expect(pasado.puedeSalir, isFalse);
+      expect(
+        pasado.motivoRechazoSalir,
+        'El partido ya se jugó: su fecha ya pasó.',
+      );
+    });
+  });
 }
