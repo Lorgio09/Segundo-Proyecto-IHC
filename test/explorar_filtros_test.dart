@@ -80,10 +80,51 @@ void main() {
     await tester.pump();
 
     await tester.tap(find.text('Unirme al equipo'));
+    await tester.pumpAndSettle();
+    expect(find.text('¿Unirte al equipo?'), findsOneWidget);
+    await tester.tap(find.text('Sí, unirme'));
     await tester.pump();
 
     expect(find.text('3/10'), findsOneWidget);
     expect(find.text('Ya formas parte de este equipo.'), findsOneWidget);
     expect(find.text('Unirme al equipo'), findsNothing);
+  });
+
+  testWidgets('H3: cancelar la confirmación no ocupa ningún cupo', (tester) async {
+    final auth = ServicioAutenticacionFalso();
+    auth.repositorio.sembrar('u-lorgio', partido('a', 'Futsal nocturno', 'Futsal'));
+    await auth.iniciarSesion('diego@unisport.edu', '123456');
+    await tester.pumpWidget(
+      MaterialApp(home: VistaExplorarPartidos(servicioAuth: auth)),
+    );
+    await tester.pump();
+
+    await tester.tap(find.text('Unirme al equipo'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Cancelar'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('2/10'), findsOneWidget);
+    expect(find.text('Unirme al equipo'), findsOneWidget);
+  });
+
+  testWidgets('H7: el filtro se conserva al salir y volver a Explorar', (tester) async {
+    final auth = ServicioAutenticacionFalso();
+    auth.repositorio.sembrar('u-lorgio', partido('a', 'Futsal nocturno', 'Futsal'));
+    await auth.iniciarSesion('diego@unisport.edu', '123456');
+    await tester.pumpWidget(
+      MaterialApp(home: VistaExplorarPartidos(servicioAuth: auth)),
+    );
+    await tester.pump();
+    await tester.enterText(find.byType(TextField), 'futsal');
+    await tester.pump();
+
+    await tester.pumpWidget(const MaterialApp(home: SizedBox()));
+    await tester.pumpWidget(
+      MaterialApp(home: VistaExplorarPartidos(servicioAuth: auth)),
+    );
+    await tester.pump();
+
+    expect(find.text('Nombre: "futsal"'), findsOneWidget);
   });
 }

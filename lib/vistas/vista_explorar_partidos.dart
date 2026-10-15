@@ -22,7 +22,7 @@ class VistaExplorarPartidos extends StatefulWidget {
 class _VistaExplorarPartidosState extends State<VistaExplorarPartidos> {
   List<ModeloPartido> _partidos = [];
   List<String> _lugares = FiltroPartidos.lugaresSugeridos;
-  FiltroPartidos _filtro = const FiltroPartidos();
+  late FiltroPartidos _filtro = widget.servicioAuth.filtroExplorar;
   bool _cargando = true;
 
   // Evita que una consulta lenta pise el resultado de una más reciente
@@ -61,6 +61,7 @@ class _VistaExplorarPartidosState extends State<VistaExplorarPartidos> {
   }
 
   void _cambiarFiltro(FiltroPartidos nuevo) {
+    widget.servicioAuth.filtroExplorar = nuevo;
     setState(() => _filtro = nuevo);
     _cargar();
   }
@@ -81,6 +82,30 @@ class _VistaExplorarPartidosState extends State<VistaExplorarPartidos> {
       _avisar('No puedes unirte. $motivo', error: true);
       return;
     }
+
+    // H3/H5: confirmar antes de ocupar un cupo
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('¿Unirte al equipo?', style: TemaApp.titulo(tamano: 20)),
+        content: Text(
+          'Ocuparás un cupo en "${partido.titulo}" '
+          '(${partido.cuposOcupados}/${partido.cuposTotales}).',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(minimumSize: const Size(120, 44)),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Sí, unirme'),
+          ),
+        ],
+      ),
+    );
+    if (confirmar != true || !mounted) return;
 
     try {
       // El servidor vuelve a aplicar la regla sobre el dato guardado
