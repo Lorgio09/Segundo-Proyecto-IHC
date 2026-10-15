@@ -8,7 +8,7 @@
 | H | Heurística | Estado | Sub-issue |
 | :-: | :--- | :--- | :-: |
 | H1 | Visibilidad del estado del sistema | Cumple | – |
-| H2 | Relación con el mundo real | **No cumple** (sev. 3): búsqueda distingue tildes | #14 |
+| H2 | Relación con el mundo real | **Corregida** (búsqueda sin tildes) | #14 |
 | H3 | Control y libertad | **No cumple** (sev. 3): unirse sin salida | #13 |
 | H4 | Consistencia y estándares | Cumple | – |
 | H5 | Prevención de errores | **No cumple** (sev. 3): unirse sin confirmación | #13 |
@@ -16,9 +16,9 @@
 | H7 | Flexibilidad y eficiencia | **No cumple** (sev. 1): filtros se pierden | #15 |
 | H8 | Diseño estético y minimalista | Cumple | – |
 | H9 | Reconocer y recuperarse de errores | Cumple | – |
-| H10 | Ayuda y documentación | **No cumple** (sev. 1): sin ayuda breve | #16 |
+| H10 | Ayuda y documentación | **Corregida** (ayuda en Crear partido) | #16 |
 
-> Estado de entrega: las correcciones de #13, #14, #15 y #16 siguen **pendientes**; esas heurísticas aún no están "corregidas". Las capturas marcadas *(pendiente)* no se tomaron todavía.
+> Estado de entrega: **#14 (H2) y #16 (H10) ya están corregidos en código** (commit a59b50d, con prueba nueva para H2). **#13 (H3/H5) y #15 (H7) siguen pendientes**, así que esas heurísticas aún no están "corregidas". Las capturas marcadas *(pendiente)* no se tomaron todavía; lo único capturado de la app corriendo es [h4-portada.png](evidencias/h4-portada.png).
 
 ## Detalle por heurística
 
@@ -32,7 +32,8 @@
 - **Dónde:** Explorar → buscar `voley`.
 - **Problema:** se compara con tildes; "voley" no encuentra "Vóley…" y aparece "Ningún partido coincide con tu búsqueda". Consecuencia: la persona cree que no hay partidos.
 - **Código:** `lib/modelos/filtro_partidos.dart` (`coincide`, `condicionesConsulta`), `lib/servicios/repositorio_supabase.dart` (`buscarPartidos`).
-- **Captura:** [hallazgo-3-busqueda-voley.png](evidencias/hallazgo-3-busqueda-voley.png)
+- **Captura (antes):** [hallazgo-3-busqueda-voley.png](evidencias/hallazgo-3-busqueda-voley.png)
+- **Corrección:** `FiltroPartidos.normalizar` / `coincideTitulo` comparan sin tildes y el repositorio filtra el nombre en la app; prueba `test/filtro_partidos_test.dart` («la búsqueda por nombre ignora tildes y mayúsculas»). Captura después: *(pendiente)*
 
 ### H3 · Control y libertad — No cumple (sev. 3) → #13
 - **Dónde:** Explorar → Unirme al equipo.
@@ -71,7 +72,8 @@
 - **Código:** `lib/modelos/modelo_partido.dart` (`motivoRechazoUnirse`), `lib/widgets/tarjeta_partido.dart`, `test/tarjeta_partido_test.dart`.
 - **Captura:** *(pendiente)*
 
-### H10 · Ayuda y documentación — No cumple (sev. 1) → #16
-- **Problema:** no hay texto de ayuda junto a los cupos ni a "Completar equipo" / "Agregar jugador".
+### H10 · Ayuda y documentación — Corregida → #16
+- **Problema:** no había texto de ayuda junto a los cupos ni a "Completar equipo" / "Agregar jugador".
+- **Corrección:** texto breve bajo el selector de cupos en `lib/vistas/vista_crear_partido.dart`.
 - **Código:** `lib/vistas/vista_crear_partido.dart`, `lib/widgets/tarjeta_partido.dart`.
 - **Captura:** *(pendiente)*
