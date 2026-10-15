@@ -9,16 +9,16 @@
 | :-: | :--- | :--- | :-: |
 | H1 | Visibilidad del estado del sistema | Cumple | – |
 | H2 | Relación con el mundo real | **Corregida** (búsqueda sin tildes) | #14 |
-| H3 | Control y libertad | **No cumple** (sev. 3): unirse sin salida | #13 |
+| H3 | Control y libertad | **Parcial**: ya pide confirmación y se puede cancelar; falta "Salir del partido" | #13 |
 | H4 | Consistencia y estándares | Cumple | – |
-| H5 | Prevención de errores | **No cumple** (sev. 3): unirse sin confirmación | #13 |
+| H5 | Prevención de errores | **Corregida** (confirmación antes de unirse) | #13 |
 | H6 | Reconocer antes que recordar | **Corregida** (commit 28aa6b1) | – |
-| H7 | Flexibilidad y eficiencia | **No cumple** (sev. 1): filtros se pierden | #15 |
+| H7 | Flexibilidad y eficiencia | **Corregida** (el filtro se conserva) | #15 |
 | H8 | Diseño estético y minimalista | Cumple | – |
 | H9 | Reconocer y recuperarse de errores | Cumple | – |
 | H10 | Ayuda y documentación | **Corregida** (ayuda en Crear partido) | #16 |
 
-> Estado de entrega: **#14 (H2) y #16 (H10) ya están corregidos en código** (commit a59b50d, con prueba nueva para H2). **#13 (H3/H5) y #15 (H7) siguen pendientes**, así que esas heurísticas aún no están "corregidas". Las capturas marcadas *(pendiente)* no se tomaron todavía; lo único capturado de la app corriendo es [h4-portada.png](evidencias/h4-portada.png).
+> Estado de entrega: **#14 (H2) y #16 (H10) ya están corregidos en código** (commit a59b50d, con prueba nueva para H2). **#15 (H7) corregido** (a9f9edb) y **#13 corregido a medias**: ya hay confirmación al unirse (H5 corregida), pero **falta "Salir del partido"**, así que H3 sigue pendiente. Las capturas marcadas *(pendiente)* no se tomaron todavía; lo único capturado de la app corriendo es [h4-portada.png](evidencias/h4-portada.png).
 
 ## Detalle por heurística
 
@@ -35,7 +35,9 @@
 - **Captura (antes):** [hallazgo-3-busqueda-voley.png](evidencias/hallazgo-3-busqueda-voley.png)
 - **Corrección:** `FiltroPartidos.normalizar` / `coincideTitulo` comparan sin tildes y el repositorio filtra el nombre en la app; prueba `test/filtro_partidos_test.dart` («la búsqueda por nombre ignora tildes y mayúsculas»). Captura después: *(pendiente)*
 
-### H3 · Control y libertad — No cumple (sev. 3) → #13
+### H3 · Control y libertad — Parcial (pendiente "Salir del partido") → #13
+- **Hecho:** se puede cancelar la unión en el diálogo de confirmación.
+- **Falta:** acción "Salir del partido" (requiere una función nueva en el servidor de Supabase).
 - **Dónde:** Explorar → Unirme al equipo.
 - **Problema:** no existe "Salir del partido"; si se une por error ocupa un cupo ajeno. (Sí cumple en otros flujos: eliminar pide confirmación y editar se puede cancelar.)
 - **Código:** `lib/widgets/tarjeta_partido.dart`, `lib/vistas/vista_explorar_partidos.dart`.
@@ -47,7 +49,8 @@
 - **Captura:** [hallazgo-1-despues.png](evidencias/hallazgo-1-despues.png)
 - **Observación (sev. 1, no bloqueante):** el registro ofrece 3 deportes y Crear partido 6.
 
-### H5 · Prevención de errores — No cumple (sev. 3) → #13
+### H5 · Prevención de errores — Corregida → #13
+- **Corrección:** diálogo «¿Unirte al equipo?» con Cancelar / Sí, unirme en `lib/vistas/vista_explorar_partidos.dart`; pruebas en `test/explorar_filtros_test.dart`.
 - **Sí cumple:** Agregar jugador se apaga con el equipo completo y explica el motivo; el servidor vuelve a validar las reglas.
 - **Problema:** unirse no pide confirmación, así que un toque accidental ocupa un cupo.
 - **Código:** `lib/modelos/modelo_partido.dart` (`puedeUnirse`), `lib/vistas/vista_explorar_partidos.dart`.
@@ -57,7 +60,8 @@
 - **Archivos:** `lib/vistas/vista_inicio_publico.dart`, `lib/vistas/vista_mis_partidos.dart`, `test/navegacion_explorar_test.dart` (commit 28aa6b1).
 - **Capturas:** [antes](evidencias/hallazgo-1-mis-partidos.png) · [después](evidencias/hallazgo-1-despues.png)
 
-### H7 · Flexibilidad y eficiencia — No cumple (sev. 1) → #15
+### H7 · Flexibilidad y eficiencia — Corregida → #15
+- **Corrección:** el filtro se guarda en `ServicioAutenticacion.filtroExplorar` y se reinicia al cerrar sesión; prueba `test/explorar_filtros_test.dart` («H7: el filtro se conserva…»).
 - **Problema:** el filtro vive en el estado de `VistaExplorarPartidos`; al salir y volver se reinicia.
 - **Código:** `lib/vistas/vista_explorar_partidos.dart` (`_filtro`).
 - **Captura:** *(pendiente)*
