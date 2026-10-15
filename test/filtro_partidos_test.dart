@@ -214,11 +214,19 @@ void main() {
       expect(describir(const FiltroPartidos()), isEmpty);
     });
 
-    test('nombre y lugar se buscan con ILIKE (sin distinguir mayúsculas)', () {
+    test('el lugar se busca con ILIKE y el nombre se compara en la app', () {
       expect(
         describir(const FiltroPartidos(texto: ' Futsal ', lugar: 'Coliseo')),
-        ['titulo ilike %Futsal%', 'ubicacion ilike %Coliseo%'],
+        ['ubicacion ilike %Coliseo%'],
       );
+    });
+
+    test('H2: la búsqueda por nombre ignora tildes y mayúsculas', () {
+      const filtro = FiltroPartidos(texto: 'voley');
+      expect(filtro.coincideTitulo('Vóley mixto'), isTrue);
+      expect(const FiltroPartidos(texto: 'VÓLEY').coincideTitulo('voley'), isTrue);
+      expect(const FiltroPartidos(texto: 'futbol').coincideTitulo('Fútbol 5'), isTrue);
+      expect(filtro.coincideTitulo('Futsal nocturno'), isFalse);
     });
 
     test('próximos 7 días: desde hoy 00:00 hasta el final del 7.º día', () {
@@ -251,8 +259,8 @@ void main() {
 
     test('los comodines escritos por el usuario se envían escapados', () {
       expect(
-        describir(const FiltroPartidos(texto: '50%_off')),
-        [r'titulo ilike %50\%\_off%'],
+        describir(const FiltroPartidos(lugar: '50%_off')),
+        [r'ubicacion ilike %50\%\_off%'],
       );
     });
   });

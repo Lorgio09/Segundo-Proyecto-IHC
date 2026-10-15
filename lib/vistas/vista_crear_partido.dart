@@ -703,6 +703,18 @@ class _VistaCrearPartidoState extends State<VistaCrearPartido> {
 
                     _etiqueta('Cupos totales (incluyéndote)'),
                     _selectorCupos(),
+                    const SizedBox(height: 8),
+                    // Ayuda breve donde se decide (H10)
+                    const Text(
+                      'Los cupos incluyen al organizador. Después podrás '
+                      '"Agregar jugador" para sumar a alguien sin cuenta o '
+                      '"Completar equipo" para cerrar la convocatoria.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: TemaApp.textoSecundario,
+                        height: 1.4,
+                      ),
+                    ),
                     const SizedBox(height: 20),
 
                     const SizedBox(height: 12),

@@ -164,7 +164,11 @@ class RepositorioSupabase implements RepositorioPartidos {
 
     final filas = await consulta.order('fecha_inicio', ascending: true);
     final inscritos = await _idsInscritos();
-    return [for (final f in filas) _desdeFila(f, inscritos: inscritos)];
+    return [
+      for (final f in filas)
+        if (filtro.coincideTitulo(f['titulo'] as String))
+          _desdeFila(f, inscritos: inscritos),
+    ];
   });
 
   @override

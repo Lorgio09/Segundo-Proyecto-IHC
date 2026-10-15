@@ -116,12 +116,8 @@ class FiltroPartidos {
     String instante(DateTime fecha) => fecha.toUtc().toIso8601String();
     final intervalo = intervaloFechas(ahora);
     return [
-      if (tieneTexto)
-        (
-          columna: 'titulo',
-          operador: 'ilike',
-          valor: '%${_escaparComodines(texto.trim())}%',
-        ),
+      // El nombre no se envía a la base: se compara sin tildes en la app
+      // (ver coincideTitulo), porque ILIKE distingue "Vóley" de "voley".
       if (deporte != null)
         (columna: 'disciplina', operador: 'eq', valor: deporte!),
       if (lugar != null)
@@ -158,12 +154,25 @@ class FiltroPartidos {
       .replaceAll('%', r'\%')
       .replaceAll('_', r'\_');
 
+  /// Minúsculas y sin tildes: "Vóley" y "voley" se consideran iguales.
+  static String normalizar(String texto) {
+    const con = 'áàäâãéèëêíìïîóòöôõúùüûñÁÀÄÂÃÉÈËÊÍÌÏÎÓÒÖÔÕÚÙÜÛÑ';
+    const sin = 'aaaaaeeeeiiiiooooouuuunAAAAAEEEEIIIIOOOOOUUUUN';
+    final b = StringBuffer();
+    for (final c in texto.toLowerCase().split('')) {
+      final i = con.indexOf(c);
+      b.write(i >= 0 ? sin[i].toLowerCase() : c);
+    }
+    return b.toString();
+  }
+
+  /// ¿El título coincide con el texto buscado? (sin tildes ni mayúsculas)
+  bool coincideTitulo(String titulo) =>
+      !tieneTexto || normalizar(titulo).contains(normalizar(texto.trim()));
+
   /// La misma regla que la consulta, aplicada en memoria.
   bool coincide(ModeloPartido p, DateTime ahora) {
-    if (tieneTexto &&
-        !p.titulo.toLowerCase().contains(texto.trim().toLowerCase())) {
-      return false;
-    }
+    if (!coincideTitulo(p.titulo)) return false;
     if (deporte != null && p.disciplina != deporte) return false;
     if (lugar != null &&
         !p.ubicacion.toLowerCase().contains(lugar!.toLowerCase())) {
