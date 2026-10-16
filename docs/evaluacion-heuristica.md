@@ -39,6 +39,8 @@
 - **Archivos modificados:** `lib/modelos/modelo_partido.dart`, `lib/servicios/repositorio_partidos.dart`, `lib/servicios/repositorio_supabase.dart`, `lib/vistas/vista_explorar_partidos.dart`, `lib/vistas/vista_mis_partidos.dart`, `lib/widgets/tarjeta_partido.dart`, `supabase/esquema.sql`, `test/union_partido_test.dart`, `test/explorar_filtros_test.dart`, `test/apoyo/repositorio_en_memoria.dart`.
 - **Antes:** ![antes](evidencias/h5-antes-2-une-sin-confirmar-ni-salida.png) (queda unido, sin salida)
 - **Después:** ![botón](evidencias/h3-despues-unido-con-salir.png) ![confirmación](evidencias/h3-despues-confirmar-salir.png)
+- **Verificado contra el servidor real (Supabase, con la función `salir_del_partido` aplicada):** una cuenta nueva se une a «Vóley mixto» (3/10 → 4/10) y luego sale (4/10 → 3/10); el aviso «Saliste de "Vóley mixto". Tu cupo quedó libre.» aparece y el botón «Unirme al equipo» vuelve a estar disponible.
+  ![unido 4/10](evidencias/h3-servidor-real-1-unido-4de10.png) ![aviso al salir](evidencias/h3-servidor-real-2-aviso-saliste.png) ![salió 3/10](evidencias/h3-servidor-real-3-salio-3de10.png)
 
 ### H4 · Consistencia y estándares — Cumple
 - **Cómo se comprobó:** la barra inferior es la misma en la portada (`Inicio | Explorar | Mis partidos`) y en *Mis partidos* (`Explorar | Mis partidos`), en el mismo orden; la acción de unirse se llama «Unirme al equipo» en todas las pantallas; los avisos usan los mismos colores (rojo = rechazo, azul = información).
