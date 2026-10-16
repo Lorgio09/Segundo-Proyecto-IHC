@@ -184,4 +184,81 @@ void main() {
       );
     });
   });
+
+  group('Clase 16 · Fitts: editar y eliminar fáciles de alcanzar', () {
+    testWidgets('son botones con texto de al menos 48 px de alto', (tester) async {
+      await tester.pumpWidget(
+        envolver(
+          TarjetaPartido(
+            partido: crearPartido(),
+            onEditar: () {},
+            onEliminar: () {},
+          ),
+        ),
+      );
+
+      final editar = find.widgetWithText(OutlinedButton, 'Editar');
+      final eliminar = find.widgetWithText(TextButton, 'Eliminar');
+      expect(editar, findsOneWidget);
+      expect(eliminar, findsOneWidget);
+      expect(tester.getSize(editar).height, greaterThanOrEqualTo(48));
+      expect(tester.getSize(eliminar).height, greaterThanOrEqualTo(48));
+    });
+
+    testWidgets('eliminar queda separado de editar', (tester) async {
+      await tester.pumpWidget(
+        envolver(
+          TarjetaPartido(
+            partido: crearPartido(),
+            onEditar: () {},
+            onEliminar: () {},
+          ),
+        ),
+      );
+
+      final finEditar = tester
+          .getRect(find.widgetWithText(OutlinedButton, 'Editar'))
+          .right;
+      final inicioEliminar = tester
+          .getRect(find.widgetWithText(TextButton, 'Eliminar'))
+          .left;
+      expect(inicioEliminar - finEditar, greaterThanOrEqualTo(16));
+    });
+
+    testWidgets('cada botón ejecuta su propia acción', (tester) async {
+      var editados = 0;
+      var eliminados = 0;
+      await tester.pumpWidget(
+        envolver(
+          TarjetaPartido(
+            partido: crearPartido(),
+            onEditar: () => editados++,
+            onEliminar: () => eliminados++,
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Editar'));
+      expect(editados, 1);
+      expect(eliminados, 0);
+
+      await tester.tap(find.text('Eliminar'));
+      expect(eliminados, 1);
+    });
+
+    testWidgets('también están con el equipo completo', (tester) async {
+      await tester.pumpWidget(
+        envolver(
+          TarjetaPartido(
+            partido: crearPartido(estado: EstadoPartido.equipoCompleto),
+            onEditar: () {},
+            onEliminar: () {},
+          ),
+        ),
+      );
+
+      expect(find.text('Editar'), findsOneWidget);
+      expect(find.text('Eliminar'), findsOneWidget);
+    });
+  });
 }

@@ -131,26 +131,6 @@ class TarjetaPartido extends StatelessWidget {
                   ],
                 ),
               ),
-              if (partido.soyOrganizador && (onEditar != null || onEliminar != null)) ...[
-                if (onEditar != null)
-                  IconButton(
-                    icon: const Icon(LucideIcons.pencil, size: 16),
-                    tooltip: 'Editar partido',
-                    color: TemaApp.textoSecundario,
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                    onPressed: onEditar,
-                  ),
-                if (onEliminar != null)
-                  IconButton(
-                    icon: const Icon(LucideIcons.trash2, size: 16),
-                    tooltip: 'Eliminar partido',
-                    color: TemaApp.rojoAlerta,
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                    onPressed: onEliminar,
-                  ),
-              ],
             ],
           ),
           const SizedBox(height: 12),
@@ -321,6 +301,56 @@ class TarjetaPartido extends StatelessWidget {
                     ),
                   ],
                 ),
+              ),
+            ],
+            // EDITAR Y ELIMINAR (Clase 16 · Fitts): antes eran íconos de 16 px,
+            // pegados y arriba a la derecha. Ahora son botones con texto de 48 px
+            // de alto, junto a las demás acciones del partido; eliminar queda
+            // separado y con color de advertencia para no tocarlo por error.
+            if (onEditar != null || onEliminar != null) ...[
+              const SizedBox(height: 12),
+              const Divider(height: 1, color: TemaApp.borde),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  if (onEditar != null)
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: onEditar,
+                        icon: const Icon(LucideIcons.pencil, size: 17),
+                        label: const Text('Editar'),
+                        style: OutlinedButton.styleFrom(
+                          minimumSize: const Size(0, 48),
+                          textStyle: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ),
+                  if (onEditar != null && onEliminar != null)
+                    const SizedBox(width: 16),
+                  if (onEliminar != null)
+                    Expanded(
+                      child: TextButton.icon(
+                        onPressed: onEliminar,
+                        icon: const Icon(LucideIcons.trash2, size: 17),
+                        label: const Text('Eliminar'),
+                        style: TextButton.styleFrom(
+                          foregroundColor: TemaApp.rojoAlerta,
+                          backgroundColor: TemaApp.rojoSuave,
+                          minimumSize: const Size(0, 48),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          textStyle: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ],
           ] else ...[
