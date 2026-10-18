@@ -1,6 +1,6 @@
 # Feature: Historial de Participación en UniSport
 # Tarea 4: Implementación y Decisiones de Interacción (Clase 16)
-# Estado: En progreso
+# Estado: Completado (Verificado contra Rúbrica)
 
 ## Specs
 
@@ -13,13 +13,18 @@ S6. "Criterios de terminado: El issue y sus sub-issues explican el alcance; el h
 
 ## Tasks
 
-- [ ] T1 (S3): Crear el issue principal y los 4 sub-issues en GitHub con gh CLI.
-- [ ] T2 (S1, S2): Diseñar el modelo y consulta de historial en Supabase y RepositorioPartidos.
-- [ ] T3 (S4, S5): Diseñar la interfaz de Historial con empty state orientador y principios de interacción.
-- [ ] T4 (S4, S6): Implementar pruebas unitarias y de widgets en Flutter para la consulta y el historial.
-- [ ] T5 (S5, S6): Probar en la app real/emulador, capturar evidencias y documentar decisiones en docs/.
-- [ ] T6 (S6): Verificación de extremo a extremo contra los 6 criterios de la rúbrica docente.
+- [x] T1 (S3): Crear el issue principal (#17) y los 4 sub-issues (#18, #19, #20, #21) en GitHub con gh CLI. Commit: `3997ece`.
+- [x] T2 (S1, S2): Diseñar el modelo y consulta de historial en Supabase y RepositorioPartidos. Commit: `3997ece`.
+- [x] T3 (S4, S5): Diseñar la interfaz de Historial con empty state orientador y principios de interacción. Commit: `0a5567d`.
+- [x] T4 (S4, S6): Implementar pruebas unitarias y de widgets en Flutter para la consulta y el historial (7 tests). Commit: `0a5567d`.
+- [x] T5 (S5, S6): Probar en la app real/emulador, capturar evidencias (1080x2400) y documentar decisiones en docs/. Commit: `8a9c514`.
+- [x] T6 (S6): Verificación de extremo a extremo contra los 6 criterios de la rúbrica docente. Issue #17 abierto; suite completa con 97 tests pasando.
 
 ## Log
 
 L1. El usuario solicitó realizar la Tarea 4 paso a paso con tiempo de sobra, cumpliendo estrictamente con lo requerido por las diapositivas de clase (sin hardcodear, con pruebas, capturas reales de pantalla y documentación).
+L2. Se implementó el modelo EventoHistorial y la consulta en Supabase/RPC y RepositorioPartidos.
+L3. Se diseñaron las vistas VistaHistorial, TarjetaHistorial y el punto de acceso en VistaMisPartidos aplicando Fitts, Hick y Carga Cognitiva.
+L4. Se agregaron 7 pruebas unitarias y de widgets en test/historial_test.dart. Toda la suite (97 tests) pasa al 100%.
+L5. Se lanzaron sesiones en el emulador Android Pixel 6 y se capturaron las 4 imágenes nativas para Fitts, Hick, Carga Cognitiva y Empty State.
+L6. Se actualizó docs/clase-16-decisiones-interaccion.md y se pushearon todos los cambios a origin/main.
