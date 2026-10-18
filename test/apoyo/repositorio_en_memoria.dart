@@ -1,3 +1,4 @@
+import 'package:unisport/modelos/evento_historial.dart';
 import 'package:unisport/modelos/filtro_partidos.dart';
 import 'package:unisport/modelos/modelo_partido.dart';
 import 'package:unisport/servicios/repositorio_partidos.dart';
@@ -77,6 +78,27 @@ class RepositorioEnMemoria implements RepositorioPartidos {
     for (final f in _partidos.values)
       if (f.organizadorId != usuarioId && _inscrito(f.partido.id)) _visto(f),
   ];
+
+  @override
+  Future<List<EventoHistorial>> obtenerHistorial({DateTime? ahora}) async {
+    final referencia = ahora ?? DateTime.now();
+    final participados = <EventoHistorial>[];
+
+    for (final f in _partidos.values) {
+      final esOrg = f.organizadorId == usuarioId;
+      final estaIns = _inscrito(f.partido.id);
+
+      if (esOrg || estaIns) {
+        final partidoVisto = _visto(f);
+        participados.add(
+          EventoHistorial.desdePartido(partidoVisto, ahora: referencia),
+        );
+      }
+    }
+
+    participados.sort((a, b) => b.fechaInicio.compareTo(a.fechaInicio));
+    return participados;
+  }
 
   @override
   Future<Map<String, List<String>>> obtenerJugadoresInscritos() async {

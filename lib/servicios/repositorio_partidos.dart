@@ -1,3 +1,4 @@
+import '../modelos/evento_historial.dart';
 import '../modelos/filtro_partidos.dart';
 import '../modelos/modelo_partido.dart';
 
@@ -49,4 +50,9 @@ abstract class RepositorioPartidos {
 
   /// "Salir del partido": libera el cupo de quien se había unido (H3).
   Future<ModeloPartido> salirDelPartido(String partidoId);
+
+  /// Historial de participación del estudiante (Clase 16 · Tarea 4).
+  /// Devuelve los partidos en los que participó (organizados o unidos),
+  /// ordenados con los más recientes primero.
+  Future<List<EventoHistorial>> obtenerHistorial({DateTime? ahora});
 }

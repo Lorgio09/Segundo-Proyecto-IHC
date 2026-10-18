@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../modelos/evento_historial.dart';
 import '../modelos/filtro_partidos.dart';
 import '../modelos/modelo_partido.dart';
 import 'repositorio_partidos.dart';
@@ -115,6 +116,52 @@ class RepositorioSupabase implements RepositorioPartidos {
         .order('fecha_inicio', ascending: true);
     return [for (final f in filas) _desdeFila(f, inscritos: ids)];
   });
+
+  @override
+  Future<List<EventoHistorial>> obtenerHistorial({DateTime? ahora}) =>
+      _ejecutar(() async {
+        try {
+          final filas = await _cliente.rpc('obtener_historial_usuario');
+          return [
+            for (final f in (filas as List))
+              EventoHistorial.desdeFila(
+                Map<String, dynamic>.from(f as Map),
+                usuarioActualId: _usuarioId,
+                ahora: ahora,
+              ),
+          ];
+        } catch (_) {
+          final mios = await _cliente
+              .from('partidos')
+              .select()
+              .eq('organizador_id', _usuarioId);
+          final ids = await _idsInscritos();
+          final filasUnidos = ids.isEmpty
+              ? <Map<String, dynamic>>[]
+              : await _cliente
+                  .from('partidos')
+                  .select()
+                  .inFilter('id', ids.toList());
+
+          final todos = <EventoHistorial>[
+            for (final f in mios)
+              EventoHistorial.desdeFila(
+                {...f, 'rol': 'organizador'},
+                usuarioActualId: _usuarioId,
+                ahora: ahora,
+              ),
+            for (final f in filasUnidos)
+              EventoHistorial.desdeFila(
+                {...f, 'rol': 'jugador'},
+                usuarioActualId: _usuarioId,
+                ahora: ahora,
+              ),
+          ];
+
+          todos.sort((a, b) => b.fechaInicio.compareTo(a.fechaInicio));
+          return todos;
+        }
+      });
 
   @override
   Future<Map<String, List<String>>> obtenerJugadoresInscritos() =>

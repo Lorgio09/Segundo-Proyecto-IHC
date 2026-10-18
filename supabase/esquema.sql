@@ -322,3 +322,55 @@ grant execute on function public.agregar_jugador_sin_cuenta(uuid) to authenticat
 grant execute on function public.completar_equipo(uuid)           to authenticated;
 grant execute on function public.editar_partido(uuid, text, text, text, timestamptz, int)
   to authenticated;
+
+-- -----------------------------------------------------------------------------
+-- Historial de participación (Clase 16 · Tarea 4)
+-- Devuelve los partidos donde el usuario participó (como organizador o inscrito),
+-- ordenados con los más recientes primero.
+-- -----------------------------------------------------------------------------
+create or replace function public.obtener_historial_usuario()
+returns table (
+  id uuid,
+  titulo text,
+  disciplina text,
+  ubicacion text,
+  fecha_inicio timestamptz,
+  cupos_totales int,
+  cupos_ocupados int,
+  estado text,
+  organizador_id uuid,
+  organizador_nombre text,
+  rol text
+)
+language plpgsql
+security definer set search_path = public
+as $$
+declare
+  v_usuario uuid := auth.uid();
+begin
+  if v_usuario is null then
+    raise exception 'Debes iniciar sesión para consultar tu historial.';
+  end if;
+
+  return query
+  select 
+    p.id,
+    p.titulo,
+    p.disciplina,
+    p.ubicacion,
+    p.fecha_inicio,
+    p.cupos_totales,
+    p.cupos_ocupados,
+    p.estado,
+    p.organizador_id,
+    p.organizador_nombre,
+    case when p.organizador_id = v_usuario then 'organizador' else 'jugador' end as rol
+  from public.partidos p
+  where p.organizador_id = v_usuario
+     or exists (select 1 from public.inscripciones i where i.partido_id = p.id and i.jugador_id = v_usuario)
+  order by p.fecha_inicio desc;
+end;
+$$;
+
+grant execute on function public.obtener_historial_usuario() to authenticated;
+
