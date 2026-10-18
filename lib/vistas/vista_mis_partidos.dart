@@ -8,6 +8,7 @@ import '../tema/tema_app.dart';
 import '../widgets/tarjeta_partido.dart';
 import 'vista_crear_partido.dart';
 import 'vista_explorar_partidos.dart';
+import 'vista_historial.dart';
 import 'vista_login.dart';
 
 /// Ruta Privada: Mis Partidos (Protegida)
@@ -115,6 +116,17 @@ class _VistaMisPartidosState extends State<VistaMisPartidos> {
       context,
       MaterialPageRoute(
         builder: (_) => VistaExplorarPartidos(servicioAuth: widget.servicioAuth),
+      ),
+    );
+    if (mounted) await _cargarPartidos();
+  }
+
+  // Abre "Historial de participación" (Clase 16 · Tarea 4)
+  Future<void> _abrirHistorial() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => VistaHistorial(servicioAuth: widget.servicioAuth),
       ),
     );
     if (mounted) await _cargarPartidos();
@@ -357,6 +369,16 @@ class _VistaMisPartidosState extends State<VistaMisPartidos> {
         title: const Text('Mis partidos'),
         actions: [
           IconButton(
+            key: const Key('icono_abrir_historial'),
+            tooltip: 'Historial de participación',
+            icon: const Icon(
+              LucideIcons.history,
+              color: TemaApp.textoPrincipal,
+              size: 20,
+            ),
+            onPressed: _abrirHistorial,
+          ),
+          IconButton(
             tooltip: 'Cerrar sesión',
             icon: const Icon(
               LucideIcons.logOut,
@@ -415,6 +437,16 @@ class _VistaMisPartidosState extends State<VistaMisPartidos> {
                   label: const Text('Explorar partidos para unirme'),
                   style: OutlinedButton.styleFrom(
                     minimumSize: const Size(double.infinity, 46),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                FilledButton.tonalIcon(
+                  key: const Key('boton_abrir_historial'),
+                  onPressed: _abrirHistorial,
+                  icon: const Icon(LucideIcons.history, size: 18),
+                  label: const Text('Ver historial de participación'),
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size(double.infinity, 48), // Ley de Fitts: >= 48 px
                   ),
                 ),
                 const SizedBox(height: 24),
